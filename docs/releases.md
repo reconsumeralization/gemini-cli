@@ -56,18 +56,52 @@ After one week (On the following Tuesday) with all signals a go, we will manuall
 - The releaser will create and merge a pr into main with the version changes.
 - Smoke tests and manual validation will be run. For now this should be manual smoke testing, we don't have a dedicated matrix or specific detailed process. There is work coming soon to make this more formalized and automatic see https://github.com/google-gemini/gemini-cli/issues/3788
 
-## Patching releases
+## Patching Releases
 
-If a bug or feature fix is found and needed before the next weekly release is out.
+If a critical bug needs to be fixed before the next scheduled release, follow this process to create a patch.
 
-- Create a new branch from the appropriate source
-  - For a patch release of a preview, start with the release/x.y.z-preview.n branch and create a new branch off of that. Run `git checkout -b hotfix-{issue_number} v{current_preview_version}-preview.{curr_patch_version}` (ex. `git checkout -b hotfix-6821 v0.2.0-preview.0`)
-  - For a patch release of an existing version, we'll utilize the git TAG that is automatically created with each release to ensure we pull the exact commit. The format is `v.x.y.z`. Run `git checkout vx.x.x -b &lt;hotfix branch name ideally an issue number>` to pull the tag and create a branch local.
-- Verify the issue. Then, either fix the issue in your branch or cherry-pick an existing commit from the `main` branch into your match. Push your changes.
-- Do a release per the instructions above, using your branch as the base and incrementing the patch version as appropriate. ![How to run a release](assets/release_patch.png)
-- After the release merge back to main
-  - For a stable release merge via PR the `release/x.y.z` branch back to main to keep version number current.
-  - For a preview relase, merge the `relase/x.y.z-preview.n` branch back to the `release/x.y.z-preview.n` branch to make the preview version number current. Then also cherry pick your feature commit back to main.
+### 1. Create a Hotfix Branch
+
+First, create a new branch for your fix. The source for this branch depends on whether you are patching a stable or a preview release.
+
+- **For a stable release patch:**
+  Create a branch from the Git tag of the version you need to patch. Tag names are formatted as `vx.y.z`.
+
+  ```bash
+  # Example: Create a hotfix branch for v0.2.0
+  git checkout v0.2.0 -b hotfix/issue-123-fix-for-v0.2.0
+  ```
+
+- **For a preview release patch:**
+  Create a branch from the existing preview release branch, which is formatted as `release/x.y.z-preview.n`.
+
+  ```bash
+  # Example: Create a hotfix branch for a preview release
+  git checkout release/v0.2.0-preview.0 -b hotfix/issue-456-fix-for-preview
+  ```
+
+### 2. Implement the Fix
+
+In your new hotfix branch, either create a new commit with the fix or cherry-pick an existing commit from the `main` branch. Merge your changes into the source of the hotfix branch (ex. https://github.com/google-gemini/gemini-cli/pull/6850).
+
+### 3. Perform the Release
+
+Follow the manual release process using the "Release" GitHub Actions workflow.
+
+- **Version**: Increment the patch version (e.g., if patching `v0.2.0-preview.0`, the new version will be `v0.2.0-preview.1`).
+- **Ref**: Use your source branch as the reference (ex. release/v0.2.0-preview.0)
+
+![How to run a release](assets/release_patch.png)
+
+### 4. Update Versions
+
+After the hotfix is released, merge the changes back to the main development branches.
+
+- **For a stable release hotfix:**
+  Open a pull request to merge the release branch (e.g., `release/0.2.1`) back into `main`. This keeps the version number in `main` up to date.
+
+- **For a preview release hotfix:**
+  Find the generated new release branch (ex. `release/v0.2.0-preview.1`) and merge it into the source branch. (ex. https://github.com/google-gemini/gemini-cli/pull/6868)
 
 ## Release Schedule
 
@@ -158,7 +192,7 @@ Each release, wether automated or manual performs the following steps:
 
 ### Failure Handling
 
-If any step in the workflow fails, it will automatically create a new issue in the repository with the labels `bug` and `relase-failure`. The issue will contain a link to the failed workflow run for easy debugging.
+If any step in the workflow fails, it will automatically create a new issue in the repository with the labels `bug` and `release-failure`. The issue will contain a link to the failed workflow run for easy debugging.
 
 ### Docker
 
