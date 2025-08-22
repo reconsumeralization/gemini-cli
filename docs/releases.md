@@ -43,7 +43,7 @@ Each night at UTC 0000 we will auto deploy a nightly release from `main`. This w
 Each Tuesday at UTC 2359 we will auto deploy a preview release of the next production release x.y.z.
 
 - This will happen as a scheduled instance of the ‘release’ action. It will be cut off of Main.
-- This will create a branch `release/x.y.z-preview.n`
+- This will create a branch `release/vx.y.z-preview.n`
 - We will run evals and smoke testing against this branch and the npm package. For now this should be manual smoke testing, we don't have a dedicated matrix or specific detailed process. There is work coming soon to make this more formalized and automatic see https://github.com/google-gemini/gemini-cli/issues/3788
 - Users installing `@preview` will get this release as well
 
@@ -51,7 +51,7 @@ Each Tuesday at UTC 2359 we will auto deploy a preview release of the next produ
 
 After one week (On the following Tuesday) with all signals a go, we will manually release at 2000 UTC via the current on-call person.
 
-- The release action will be used with the source branch as `release/x.y.z-preview.n`
+- The release action will be used with the source branch as `release/vx.y.z-preview.n`
 - The version will be x.y.z
 - The releaser will create and merge a pr into main with the version changes.
 - Smoke tests and manual validation will be run. For now this should be manual smoke testing, we don't have a dedicated matrix or specific detailed process. There is work coming soon to make this more formalized and automatic see https://github.com/google-gemini/gemini-cli/issues/3788
@@ -73,7 +73,7 @@ First, create a new branch for your fix. The source for this branch depends on w
   ```
 
 - **For a preview release patch:**
-  Create a branch from the existing preview release branch, which is formatted as `release/x.y.z-preview.n`.
+  Create a branch from the existing preview release branch, which is formatted as `release/vx.y.z-preview.n`.
 
   ```bash
   # Example: Create a hotfix branch for a preview release
