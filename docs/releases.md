@@ -88,7 +88,7 @@ In your new hotfix branch, either create a new commit with the fix or cherry-pic
 
 Follow the manual release process using the "Release" GitHub Actions workflow.
 
-- **Version**: Increment the patch version (e.g., if patching `v0.2.0-preview.0`, the new version will be `v0.2.0-preview.1`).
+- **Version**: For stable patches, increment the patch version (e.g., `v0.2.0` -> `v0.2.1`). For preview patches, increment the preview number (e.g., `v0.2.0-preview.0` -> `v0.2.0-preview.1`).
 - **Ref**: Use your source branch as the reference (ex. `release/v0.2.0-preview.0`)
 
 ![How to run a release](assets/release_patch.png)
