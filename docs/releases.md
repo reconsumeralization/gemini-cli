@@ -95,13 +95,13 @@ Follow the manual release process using the "Release" GitHub Actions workflow.
 
 ### 4. Update Versions
 
-After the hotfix is released, merge the changes back to the main development branches.
+After the hotfix is released, merge the changes back to the appropriate branch.
 
 - **For a stable release hotfix:**
   Open a pull request to merge the release branch (e.g., `release/0.2.1`) back into `main`. This keeps the version number in `main` up to date.
 
 - **For a preview release hotfix:**
-  Open a pull request to merge the release branch (e.g., `release/v0.2.0-preview.1`) back into the existing preview release branch (`release/v0.2.0-preview.0`) (ex. https://github.com/google-gemini/gemini-cli/pull/6868)
+  Open a pull request to merge the new preview release branch (e.g., `release/v0.2.0-preview.1`) back into the existing preview release branch (`release/v0.2.0-preview.0`) (ex. https://github.com/google-gemini/gemini-cli/pull/6868)
 
 ## Release Schedule
 
