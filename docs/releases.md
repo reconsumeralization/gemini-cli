@@ -61,10 +61,10 @@ After one week (On the following Tuesday) with all signals a go, we will manuall
 If a bug or feature fix is found and needed before the next weekly release is out.
 
 - Create a new branch from the appropriate source
-  - For a patch release of a preview, start with the release/x.y.z-preview.n branch and create a new branch off of that.
+  - For a patch release of a preview, start with the release/x.y.z-preview.n branch and create a new branch off of that. Run `git checkout -b hotfix-{issue_number} v{current_preview_version}-preview.{curr_patch_version}` (ex. `git checkout -b hotfix-6821 v0.2.0-preview.0`)
   - For a patch release of an existing version, we'll utilize the git TAG that is automatically created with each release to ensure we pull the exact commit. The format is `v.x.y.z`. Run `git checkout vx.x.x -b &lt;hotfix branch name ideally an issue number>` to pull the tag and create a branch local.
-- Verify the issue, then fix the issue, push your changes
-- Do a release per the instructions above, using your branch as the base and incrementing the patch version as appropriate.
+- Verify the issue. Then, either fix the issue in your branch or cherry-pick an existing commit from the `main` branch into your match. Push your changes.
+- Do a release per the instructions above, using your branch as the base and incrementing the patch version as appropriate. ![How to run a release](assets/release_patch.png)
 - After the release merge back to main
   - For a stable release merge via PR the `release/x.y.z` branch back to main to keep version number current.
   - For a preview relase, merge the `relase/x.y.z-preview.n` branch back to the `release/x.y.z-preview.n` branch to make the preview version number current. Then also cherry pick your feature commit back to main.
