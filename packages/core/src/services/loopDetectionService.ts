@@ -171,7 +171,14 @@ export class LoopDetectionService {
     const hasBlockquote = /(^|\n)>\s/.test(content);
     const isDivider = /^[|+-s\u2500-\u257F]+$/.test(content);
 
-    if (numFences || hasTable || hasListItem || hasHeading || hasBlockquote || isDivider) {
+    if (
+      numFences ||
+      hasTable ||
+      hasListItem ||
+      hasHeading ||
+      hasBlockquote ||
+      isDivider
+    ) {
       // Reset tracking when different content elements are detected to avoid analyzing content
       // that spans across different element boundaries.
       this.resetContentTracking();
