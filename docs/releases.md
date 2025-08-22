@@ -77,7 +77,7 @@ First, create a new branch for your fix. The source for this branch depends on w
 
   ```bash
   # Example: Create a hotfix branch for a preview release
-  git checkout release/v0.2.0-preview.0 -b hotfix/issue-456-fix-for-preview
+  git checkout release/v0.2.0-preview.0 && git checkout -b hotfix/issue-456-fix-for-preview
   ```
 
 ### 2. Implement the Fix
@@ -89,7 +89,7 @@ In your new hotfix branch, either create a new commit with the fix or cherry-pic
 Follow the manual release process using the "Release" GitHub Actions workflow.
 
 - **Version**: Increment the patch version (e.g., if patching `v0.2.0-preview.0`, the new version will be `v0.2.0-preview.1`).
-- **Ref**: Use your source branch as the reference (ex. release/v0.2.0-preview.0)
+- **Ref**: Use your source branch as the reference (ex. `release/v0.2.0-preview.0`)
 
 ![How to run a release](assets/release_patch.png)
 
@@ -101,7 +101,7 @@ After the hotfix is released, merge the changes back to the main development bra
   Open a pull request to merge the release branch (e.g., `release/0.2.1`) back into `main`. This keeps the version number in `main` up to date.
 
 - **For a preview release hotfix:**
-  Find the generated new release branch (ex. `release/v0.2.0-preview.1`) and merge it into the source branch. (ex. https://github.com/google-gemini/gemini-cli/pull/6868)
+  Open a pull request to merge the release branch (e.g., `release/v0.2.0-preview.1`) back into the existing preview release branch (`release/v0.2.0-preview.0`) (ex. https://github.com/google-gemini/gemini-cli/pull/6868)
 
 ## Release Schedule
 
