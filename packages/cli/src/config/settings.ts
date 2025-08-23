@@ -13,7 +13,7 @@ import {
   getErrorMessage,
   Storage,
  MCPServerConfig } from '@google/gemini-cli-core';
-import * as stripJsonComments from 'strip-json-comments';
+import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
@@ -326,14 +326,14 @@ export function loadEnvironment(settings?: Settings): void {
       const isProjectEnvFile = !envFilePath.includes(GEMINI_DIR);
 
       for (const key in parsedEnv) {
-        if (Object.hasOwn(parsedEnv, key)) {
+        if (Object.prototype.hasOwnProperty.call(parsedEnv, key)) {
           // If it's a project .env file, skip loading excluded variables.
           if (isProjectEnvFile && excludedVars.includes(key)) {
             continue;
           }
 
           // Load variable only if it's not already set in the environment.
-          if (!Object.hasOwn(process.env, key)) {
+          if (!Object.prototype.hasOwnProperty.call(process.env, key)) {
             process.env[key] = parsedEnv[key];
           }
         }
