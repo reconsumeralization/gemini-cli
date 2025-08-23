@@ -166,8 +166,8 @@ export class FileExclusions {
     // Add custom patterns from configuration
     // TODO: getCustomExcludes method needs to be implemented in Config interface
     if (this.config) {
-      const configCustomExcludes = this.config.getCustomExcludes?.() ?? [];
-      patterns.push(...configCustomExcludes);
+      const configCustomExcludes = this.config['getCustomExcludes']?.() ?? [];
+      patterns.push(...(configCustomExcludes as string[]));
     }
 
     // Add user-provided custom patterns
@@ -198,11 +198,7 @@ export class FileExclusions {
   getGlobExcludes(additionalExcludes: string[] = []): string[] {
     const corePatterns = this.getCoreIgnorePatterns();
 
-    // Add any custom patterns from config if available
-    // TODO: getCustomExcludes method needs to be implemented in Config interface
-    const configPatterns = this.config?.getCustomExcludes?.() ?? [];
-
-    return [...corePatterns, ...configPatterns, ...additionalExcludes];
+    return [...corePatterns, ...additionalExcludes];
   }
 
   /**
