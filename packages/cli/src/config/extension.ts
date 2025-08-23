@@ -165,7 +165,7 @@ export function annotateActiveExtensions(
     });
   }
 
-  for (const requestedName of notFoundNames) {
+  for (const requestedName of Array.from(notFoundNames)) {
     console.error(`Extension not found: ${requestedName}`);
   }
 

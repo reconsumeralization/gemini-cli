@@ -628,7 +628,7 @@ function mergeExcludeTools(
       allExcludeTools.add(tool);
     }
   }
-  return [...allExcludeTools];
+  return Array.from(allExcludeTools);
 }
 
 export { Config };
