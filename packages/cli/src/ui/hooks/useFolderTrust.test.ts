@@ -25,8 +25,8 @@ vi.mock('process', () => ({
 describe('useFolderTrust', () => {
   let mockSettings: LoadedSettings;
   let mockTrustedFolders: LoadedTrustedFolders;
-  let loadTrustedFoldersSpy: vi.SpyInstance;
-  let isWorkspaceTrustedSpy: vi.SpyInstance;
+  let loadTrustedFoldersSpy: ReturnType<typeof vi.spyOn>;
+  let isWorkspaceTrustedSpy: ReturnType<typeof vi.spyOn>;
   let onTrustChange: (isTrusted: boolean | undefined) => void;
 
   beforeEach(() => {
@@ -45,8 +45,8 @@ describe('useFolderTrust', () => {
     loadTrustedFoldersSpy = vi
       .spyOn(trustedFolders, 'loadTrustedFolders')
       .mockReturnValue(mockTrustedFolders);
-    isWorkspaceTrustedSpy = vi.spyOn(trustedFolders, 'isWorkspaceTrusted');
-    (process.cwd as vi.Mock).mockReturnValue('/test/path');
+    isWorkspaceTrustedSpy = vi.spyOn(trustedFolders, 'isWorkspaceTrusted') as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    (process.cwd as ReturnType<typeof vi.fn>).mockReturnValue('/test/path');
     onTrustChange = vi.fn();
   });
 

@@ -6,11 +6,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { directoryCommand, expandHomeDir } from './directoryCommand.js';
-import { Config, WorkspaceContext } from '@google/gemini-cli-core';
+import { Config } from '@google/gemini-cli-core';
 import { CommandContext } from './types.js';
 import { MessageType } from '../types.js';
 import * as os from 'os';
 import * as path from 'path';
+
+// Local interface for mocked WorkspaceContext
+interface WorkspaceContext {
+  addDirectory: (path: string) => void;
+  getDirectories: () => readonly string[];
+}
 
 describe('directoryCommand', () => {
   let mockContext: CommandContext;
@@ -32,7 +38,7 @@ describe('directoryCommand', () => {
           path.normalize('/home/user/project1'),
           path.normalize('/home/user/project2'),
         ]),
-    } as unknown as WorkspaceContext;
+      } as unknown as WorkspaceContext;
 
     mockConfig = {
       getWorkspaceContext: () => mockWorkspaceContext,

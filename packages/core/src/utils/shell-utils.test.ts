@@ -12,8 +12,12 @@ import {
   getShellConfiguration,
   isCommandAllowed,
   stripShellWrapper,
+  isCommandSafe,
+  getSecurityProfiles,
+  setSecurityProfile,
+  getCurrentSecurityProfile,
 } from './shell-utils.js';
-import { Config } from '../config/config.js';
+import { Config, ApprovalMode } from '../config/config.js';
 
 const mockPlatform = vi.hoisted(() => vi.fn());
 vi.mock('os', () => ({
@@ -38,6 +42,7 @@ beforeEach(() => {
   config = {
     getCoreTools: () => [],
     getExcludeTools: () => [],
+    getApprovalMode: () => ApprovalMode.DEFAULT,
   } as unknown as Config;
 });
 
@@ -429,6 +434,366 @@ describe('getShellConfiguration', () => {
       expect(config.executable).toBe('C:\\Path\\To\\POWERSHELL.EXE');
       expect(config.argsPrefix).toEqual(['-NoProfile', '-Command']);
       expect(config.shell).toBe('powershell');
+    });
+  });
+});
+
+// Security Function Tests
+describe('Security System', () => {
+  describe('isCommandSafe', () => {
+    beforeEach(() => {
+      // Reset to standard profile before each test
+      setSecurityProfile('standard');
+    });
+
+    it('should return safe for allowed commands', () => {
+      const result = isCommandSafe('echo hello');
+      expect(result.safe).toBe(true);
+      expect(result.risk).toBe('low');
+      expect(result.reason).toContain('safe for automatic execution');
+    });
+
+    it('should return unsafe for empty commands', () => {
+      const result = isCommandSafe('');
+      expect(result.safe).toBe(false);
+      expect(result.reason).toBe('Empty command');
+    });
+
+    it('should return unsafe for null/undefined commands', () => {
+      const result1 = isCommandSafe(null as unknown as string);
+      expect(result1.safe).toBe(false);
+      expect(result1.reason).toBe('Invalid command string');
+
+      const result2 = isCommandSafe(undefined as unknown as string);
+      expect(result2.safe).toBe(false);
+      expect(result2.reason).toBe('Invalid command string');
+    });
+
+    it('should block dangerous commands', () => {
+      const dangerousCommands = ['rm -rf /', 'sudo rm -rf /var', 'chmod 777 /etc/passwd'];
+      dangerousCommands.forEach(cmd => {
+        const result = isCommandSafe(cmd);
+        expect(result.safe).toBe(false);
+        expect(result.risk).toBe('high');
+        expect(result.reason).toContain('blocked');
+      });
+    });
+
+    it('should flag medium risk commands', () => {
+      const mediumRiskCommands = ['cp file1 file2', 'curl https://example.com'];
+      mediumRiskCommands.forEach(cmd => {
+        const result = isCommandSafe(cmd);
+        expect(result.safe).toBe(true);
+        expect(result.risk).toBe('medium');
+        expect(result.reason).toContain('potentially risky');
+      });
+    });
+
+    it('should detect shell injection attempts', () => {
+      const injectionAttempts = [
+        'echo hello && evil command',
+        'echo hello; rm -rf /',
+        'echo hello | cat /etc/passwd',
+        'echo hello > /dev/null',
+        'echo hello < /etc/passwd'
+      ];
+
+      injectionAttempts.forEach(cmd => {
+        const result = isCommandSafe(cmd);
+        expect(result.safe).toBe(false);
+        expect(result.risk).toBe('high');
+        expect(result.reason).toContain('injection');
+      });
+    });
+
+    it('should detect command substitution attempts', () => {
+      const substitutionAttempts = [
+        'echo $(rm -rf /)',
+        'echo `rm -rf /`',
+        'cat ${HOME}/.ssh/id_rsa'
+      ];
+
+      substitutionAttempts.forEach(cmd => {
+        const result = isCommandSafe(cmd);
+        expect(result.safe).toBe(false);
+        expect(result.risk).toBe('high');
+        expect(result.reason).toContain('injection');
+      });
+    });
+
+    it('should detect dangerous patterns', () => {
+      const dangerousPatterns = [
+        '/dev/null',
+        '/etc/passwd',
+        '/root/.ssh',
+        'authorized_keys'
+      ];
+
+      dangerousPatterns.forEach(pattern => {
+        const cmd = `cat ${pattern}`;
+        const result = isCommandSafe(cmd);
+        expect(result.safe).toBe(false);
+        expect(result.risk).toBe('high');
+      });
+    });
+
+    it('should handle different security profiles', () => {
+      // Test beginner profile
+      setSecurityProfile('beginner');
+      const result1 = isCommandSafe('git status');
+      expect(result1.safe).toBe(false);
+      expect(result1.reason).toContain('not in the allowed commands');
+
+      // Test developer profile
+      setSecurityProfile('developer');
+      const result2 = isCommandSafe('docker build .');
+      expect(result2.safe).toBe(true);
+      expect(result2.risk).toBe('low');
+    });
+  });
+
+  describe('getSecurityProfiles', () => {
+    it('should return all security profiles', () => {
+      const profiles = getSecurityProfiles();
+      expect(profiles).toBeDefined();
+      expect(typeof profiles).toBe('object');
+      expect(Object.keys(profiles)).toContain('beginner');
+      expect(Object.keys(profiles)).toContain('standard');
+      expect(Object.keys(profiles)).toContain('advanced');
+      expect(Object.keys(profiles)).toContain('developer');
+    });
+
+    it('should return profiles with correct structure', () => {
+      const profiles = getSecurityProfiles();
+
+      Object.values(profiles).forEach(profile => {
+        expect(profile).toHaveProperty('name');
+        expect(profile).toHaveProperty('description');
+        expect(profile).toHaveProperty('allowedCommands');
+        expect(profile).toHaveProperty('riskyCommands');
+        expect(profile).toHaveProperty('dangerousCommands');
+        expect(profile).toHaveProperty('strictMode');
+        expect(profile).toHaveProperty('educationMode');
+        expect(profile).toHaveProperty('logLevel');
+
+        expect(profile.allowedCommands).toBeInstanceOf(Set);
+        expect(profile.riskyCommands).toBeInstanceOf(Set);
+        expect(profile.dangerousCommands).toBeInstanceOf(Set);
+        expect(typeof profile.strictMode).toBe('boolean');
+        expect(typeof profile.educationMode).toBe('boolean');
+        expect(['minimal', 'standard', 'verbose']).toContain(profile.logLevel);
+      });
+    });
+
+    it('should have beginner profile with minimal commands', () => {
+      const profiles = getSecurityProfiles();
+      const beginner = profiles['beginner'];
+
+      expect(beginner.name).toBe('Beginner');
+      expect(beginner.allowedCommands.size).toBe(6); // echo, ls, cat, pwd, whoami, date
+      expect(beginner.strictMode).toBe(true);
+      expect(beginner.educationMode).toBe(true);
+      expect(beginner.logLevel).toBe('verbose');
+    });
+
+    it('should have standard profile as default', () => {
+      const profiles = getSecurityProfiles();
+      const standard = profiles['standard'];
+
+      expect(standard.name).toBe('Standard');
+      expect(standard.allowedCommands.size).toBeGreaterThan(10);
+      expect(standard.strictMode).toBe(false);
+      expect(standard.educationMode).toBe(true);
+      expect(standard.logLevel).toBe('standard');
+    });
+  });
+
+  describe('setSecurityProfile', () => {
+    afterEach(() => {
+      // Reset to standard after each test
+      setSecurityProfile('standard');
+    });
+
+    it('should successfully switch to beginner profile', () => {
+      const result = setSecurityProfile('beginner');
+      expect(result).toBe(true);
+
+      const current = getCurrentSecurityProfile();
+      expect(current.name).toBe('Beginner');
+    });
+
+    it('should successfully switch to advanced profile', () => {
+      const result = setSecurityProfile('advanced');
+      expect(result).toBe(true);
+
+      const current = getCurrentSecurityProfile();
+      expect(current.name).toBe('Advanced');
+    });
+
+    it('should successfully switch to developer profile', () => {
+      const result = setSecurityProfile('developer');
+      expect(result).toBe(true);
+
+      const current = getCurrentSecurityProfile();
+      expect(current.name).toBe('Developer');
+    });
+
+    it('should return false for invalid profile', () => {
+      const result = setSecurityProfile('invalid' as string);
+      expect(result).toBe(false);
+
+      // Should remain on previous profile
+      const current = getCurrentSecurityProfile();
+      expect(current.name).toBe('Standard'); // Default
+    });
+
+    it('should be case-sensitive for profile names', () => {
+      const result = setSecurityProfile('BEGINNER' as string);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getCurrentSecurityProfile', () => {
+    it('should return current active profile', () => {
+      // Default should be standard
+      const current = getCurrentSecurityProfile();
+      expect(current.name).toBe('Standard');
+    });
+
+    it('should reflect profile changes', () => {
+      setSecurityProfile('beginner');
+      const current1 = getCurrentSecurityProfile();
+      expect(current1.name).toBe('Beginner');
+
+      setSecurityProfile('advanced');
+      const current2 = getCurrentSecurityProfile();
+      expect(current2.name).toBe('Advanced');
+
+      // Reset
+      setSecurityProfile('standard');
+    });
+
+    it('should return profile with all required properties', () => {
+      const current = getCurrentSecurityProfile();
+
+      expect(current).toHaveProperty('name');
+      expect(current).toHaveProperty('description');
+      expect(current).toHaveProperty('allowedCommands');
+      expect(current).toHaveProperty('riskyCommands');
+      expect(current).toHaveProperty('dangerousCommands');
+      expect(current).toHaveProperty('strictMode');
+      expect(current).toHaveProperty('educationMode');
+      expect(current).toHaveProperty('logLevel');
+    });
+  });
+
+  describe('Security Profile Behavior', () => {
+    describe('Beginner Profile', () => {
+      beforeEach(() => {
+        setSecurityProfile('beginner');
+      });
+
+      afterEach(() => {
+        setSecurityProfile('standard');
+      });
+
+      it('should only allow basic commands', () => {
+        const allowedCommands = ['echo hello', 'ls -la', 'cat file.txt', 'pwd', 'whoami', 'date'];
+        const blockedCommands = ['git status', 'npm install', 'docker build', 'rm file.txt'];
+
+        allowedCommands.forEach(cmd => {
+          const result = isCommandSafe(cmd);
+          expect(result.safe).toBe(true);
+        });
+
+        blockedCommands.forEach(cmd => {
+          const result = isCommandSafe(cmd);
+          expect(result.safe).toBe(false);
+          expect(result.reason).toContain('not in the allowed commands');
+        });
+      });
+    });
+
+    describe('Developer Profile', () => {
+      beforeEach(() => {
+        setSecurityProfile('developer');
+      });
+
+      afterEach(() => {
+        setSecurityProfile('standard');
+      });
+
+      it('should allow development tools', () => {
+        const devCommands = ['npm install', 'git status', 'docker build .', 'node server.js'];
+
+        devCommands.forEach(cmd => {
+          const result = isCommandSafe(cmd);
+          expect(result.safe).toBe(true);
+        });
+      });
+
+      it('should still block dangerous commands', () => {
+        const dangerousCommands = ['rm -rf /', 'sudo rm -rf /var'];
+
+        dangerousCommands.forEach(cmd => {
+          const result = isCommandSafe(cmd);
+          expect(result.safe).toBe(false);
+          expect(result.risk).toBe('high');
+        });
+      });
+    });
+
+    describe('Advanced Profile', () => {
+      beforeEach(() => {
+        setSecurityProfile('advanced');
+      });
+
+      afterEach(() => {
+        setSecurityProfile('standard');
+      });
+
+      it('should allow system commands but flag them as risky', () => {
+        const systemCommands = ['chmod 644 file.txt', 'ps aux', 'kill 1234', 'top'];
+
+        systemCommands.forEach(cmd => {
+          const result = isCommandSafe(cmd);
+          expect(result.safe).toBe(true);
+          if (cmd.includes('rm') || cmd.includes('sudo')) {
+            expect(result.risk).toBe('medium');
+          }
+        });
+      });
+    });
+  });
+
+  describe('Security Integration with isCommandAllowed', () => {
+    beforeEach(() => {
+      setSecurityProfile('standard');
+    });
+
+    it('should integrate security checks with existing permission system', () => {
+      config.getCoreTools = () => ['ShellTool(echo)'];
+
+      // Safe command should be allowed
+      const safeResult = isCommandAllowed('echo hello', config);
+      expect(safeResult.allowed).toBe(true);
+      expect(safeResult.risk).toBe('low');
+
+      // Dangerous command should be blocked
+      const dangerousResult = isCommandAllowed('rm -rf /', config);
+      expect(dangerousResult.allowed).toBe(false);
+      expect(dangerousResult.risk).toBe('high');
+    });
+
+    it('should handle yolo mode with security profiles', () => {
+      config.getApprovalMode = () => ApprovalMode.YOLO;
+      config.getCoreTools = () => ['ShellTool'];
+
+      // Even in yolo mode, dangerous commands should be blocked
+      const dangerousResult = isCommandAllowed('rm -rf /', config);
+      expect(dangerousResult.allowed).toBe(false);
+      expect(dangerousResult.risk).toBe('high');
+      expect(dangerousResult.reason).toContain('blocked');
     });
   });
 });

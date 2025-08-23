@@ -6,8 +6,8 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import os from 'os';
-import path from 'path';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 const execAsync = promisify(exec);
 

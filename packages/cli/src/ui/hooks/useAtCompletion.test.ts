@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useAtCompletion } from './useAtCompletion.js';
-import { Config, FileSearch, FileSearchFactory } from '@google/gemini-cli-core';
+import { Config, FileSearch, FileSearchFactory, SearchOptions } from '@google/gemini-cli-core';
 import {
   createTmpDir,
   cleanupTmpDir,
@@ -205,9 +205,9 @@ describe('useAtCompletion', () => {
 
       const mockFileSearch: FileSearch = {
         initialize: vi.fn().mockResolvedValue(undefined),
-        search: vi.fn().mockImplementation(async (...args) => {
+        search: vi.fn().mockImplementation(async (pattern: string, options?: SearchOptions) => {
           await new Promise((resolve) => setTimeout(resolve, 300));
-          return realFileSearch.search(...args);
+          return realFileSearch.search(pattern, options);
         }),
       };
       vi.spyOn(FileSearchFactory, 'create').mockReturnValue(mockFileSearch);

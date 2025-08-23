@@ -13,7 +13,7 @@ vi.mock('fs/promises');
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   const actual = await importOriginal();
   return {
-    ...actual,
+    ...(actual as Record<string, unknown>),
     getErrorMessage: vi.fn(),
   };
 });

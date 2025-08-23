@@ -25,7 +25,7 @@ const mockedUseStdout = vi.mocked(useStdout);
 
 describe('useFocus', () => {
   let stdin: EventEmitter;
-  let stdout: { write: vi.Func };
+  let stdout: { write: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     stdin = new EventEmitter();

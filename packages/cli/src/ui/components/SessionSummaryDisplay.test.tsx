@@ -27,6 +27,7 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
       metrics,
       lastPromptTokenCount: 0,
       promptCount: 5,
+      sessionId: 'test-session-id',
     },
 
     getPromptCount: () => 5,
@@ -57,7 +58,7 @@ describe('<SessionSummaryDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {

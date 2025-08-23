@@ -65,7 +65,7 @@ function getRealPath(path: string): string {
  * Manages the connection to and interaction with the IDE server.
  */
 export class IdeClient {
-  private static instance: IdeClient;
+  private static instance: IdeClient | undefined;
   private client: Client | undefined = undefined;
   private state: IDEConnectionState = {
     status: IDEConnectionStatus.Disconnected,
@@ -89,6 +89,9 @@ export class IdeClient {
       IdeClient.instance = new IdeClient();
     }
     return IdeClient.instance;
+  }
+  static resetInstance(): void {
+    IdeClient.instance = undefined;
   }
 
   addStatusChangeListener(listener: (state: IDEConnectionState) => void) {
@@ -246,7 +249,7 @@ export class IdeClient {
     if (this.state.status === IDEConnectionStatus.Disconnected) {
       return;
     }
-    for (const filePath of this.diffResponses.keys()) {
+    for (const filePath of Array.from(this.diffResponses.keys())) {
       await this.closeDiff(filePath);
     }
     this.diffResponses.clear();

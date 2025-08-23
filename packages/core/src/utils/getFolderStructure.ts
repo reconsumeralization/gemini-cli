@@ -322,7 +322,7 @@ export async function getFolderStructure(
     formatStructure(structureRoot, '', true, true, structureLines);
 
     // 3. Build the final output string
-    function isTruncated(node: FullFolderInfo): boolean {
+    const isTruncated: (node: FullFolderInfo) => boolean = (node) => {
       if (node.hasMoreFiles || node.hasMoreSubfolders || node.isIgnored) {
         return true;
       }
@@ -332,7 +332,7 @@ export async function getFolderStructure(
         }
       }
       return false;
-    }
+    };
 
     let summary = `Showing up to ${mergedOptions.maxItems} items (files + folders).`;
 

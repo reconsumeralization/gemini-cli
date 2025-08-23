@@ -434,9 +434,8 @@ export function safeSpawnProxy(): ChildProcess | undefined {
 
   // Build safe env with enhanced filtering
   const safeEnv = buildSafeEnv(process.env);
-  
   // Explicit removal of dangerous variables (defense in depth)
-  for (const dangerousVar of DANGEROUS_ENVS) {
+  for (const dangerousVar of Array.from(DANGEROUS_ENVS)) {
     if (dangerousVar in safeEnv) {
       delete safeEnv[dangerousVar];
       console.warn(`SECURITY: Removed dangerous env var: ${dangerousVar}`);

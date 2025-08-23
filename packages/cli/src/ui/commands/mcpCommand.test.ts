@@ -57,7 +57,7 @@ const createMockMCPTool = (
     name,
     description || `Description for ${name}`,
     { type: Type.OBJECT, properties: {} },
-    name, // serverToolName same as name for simplicity
+    0, // serverToolName same as name for simplicity
   );
 
 describe('mcpCommand', () => {
@@ -503,7 +503,7 @@ describe('mcpCommand', () => {
           },
           required: ['param1'],
         },
-        'tool1',
+        0,
       );
 
       const tool2 = new DiscoveredMCPTool(
@@ -518,7 +518,7 @@ describe('mcpCommand', () => {
           },
           required: ['param2'],
         },
-        'tool2',
+        0,
       );
 
       const mockServerTools = [tool1, tool2];

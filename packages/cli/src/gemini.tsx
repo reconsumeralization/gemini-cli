@@ -293,7 +293,7 @@ export async function main() {
 
       const sandboxArgs = injectStdinIntoArgs(process.argv, stdinData);
 
-      await start_sandbox(sandboxConfig, memoryArgs, config, sandboxArgs);
+      await start_sandbox(sandboxConfig, memoryArgs, config as never, sandboxArgs);
       process.exit(0);
     } else {
       // Not in a sandbox and not entering one, so relaunch with additional

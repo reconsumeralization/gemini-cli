@@ -32,7 +32,7 @@ const argv = yargs(hideBin(process.argv)).option('q', {
   default: false,
 }).argv;
 
-let geminiSandbox = process.env.GEMINI_SANDBOX;
+let geminiSandbox = process.env['GEMINI_SANDBOX'];
 
 if (!geminiSandbox) {
   const userSettingsFile = join(os.homedir(), '.gemini', 'settings.json');
@@ -64,7 +64,7 @@ if (!geminiSandbox) {
     }
     currentDir = parentDir;
   }
-  geminiSandbox = process.env.GEMINI_SANDBOX;
+  geminiSandbox = process.env['GEMINI_SANDBOX'];
 }
 
 geminiSandbox = (geminiSandbox || '').toLowerCase();
@@ -109,7 +109,7 @@ if (['1', 'true'].includes(geminiSandbox)) {
     process.exit(1);
   }
 } else {
-  if (os.platform() === 'darwin' && process.env.SEATBELT_PROFILE !== 'none') {
+  if (os.platform() === 'darwin' && process.env['SEATBELT_PROFILE'] !== 'none') {
     if (commandExists('sandbox-exec')) {
       command = 'sandbox-exec';
     } else {

@@ -11,17 +11,17 @@ import {
   CodeChallengeMethod,
 } from 'google-auth-library';
 import * as http from 'http';
-import url from 'url';
-import crypto from 'crypto';
+import * as url from 'node:url';
+import * as crypto from 'node:crypto';
 import * as net from 'net';
 import open from 'open';
-import path from 'node:path';
+import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { Config } from '../config/config.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { UserAccountManager } from '../utils/userAccountManager.js';
 import { AuthType } from '../core/contentGenerator.js';
-import readline from 'node:readline';
+import * as readline from 'node:readline';
 import { Storage } from '../config/storage.js';
 
 const userAccountManager = new UserAccountManager();

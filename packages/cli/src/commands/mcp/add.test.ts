@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { vi } from 'vitest';
 import yargs from 'yargs';
 import { addCommand } from './add.js';
 import { loadSettings, SettingScope } from '../../config/settings.js';
@@ -21,11 +22,10 @@ vi.mock('../../config/settings.js', async () => {
   };
 });
 
-const mockedLoadSettings = loadSettings as vi.Mock;
-
+const mockedLoadSettings = loadSettings as ReturnType<typeof vi.fn>;
 describe('mcp add command', () => {
-  let parser: yargs.Argv;
-  let mockSetValue: vi.Mock;
+  let parser: ReturnType<typeof yargs>;
+  let mockSetValue: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.resetAllMocks();

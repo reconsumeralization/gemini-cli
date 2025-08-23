@@ -116,7 +116,7 @@ chmodSync(
   0o755,
 );
 
-const buildStdout = process.env.VERBOSE ? 'inherit' : 'ignore';
+const buildStdout = process.env['VERBOSE'] ? 'inherit' : 'ignore';
 
 // Determine the appropriate shell based on OS
 const isWindows = os.platform() === 'win32';
@@ -146,13 +146,13 @@ function buildImage(imageName, dockerfile) {
   ).version;
 
   const imageTag =
-    process.env.GEMINI_SANDBOX_IMAGE_TAG || imageName.split(':')[1];
+    process.env['GEMINI_SANDBOX_IMAGE_TAG'] || imageName.split(':')[1];
   const finalImageName = `${imageName.split(':')[0]}:${imageTag}`;
 
   try {
     execSync(
       `${sandboxCommand} build ${buildCommandArgs} ${
-        process.env.BUILD_SANDBOX_FLAGS || ''
+        process.env['BUILD_SANDBOX_FLAGS'] || ''
       } --build-arg CLI_VERSION_ARG=${npmPackageVersion} -f "${dockerfile}" -t "${imageName}" .`,
       { stdio: buildStdout, shell: shellToUse },
     );

@@ -78,7 +78,7 @@ async function main() {
     originalSandboxSetting,
   );
 
-  const projectId = process.env.OTLP_GOOGLE_CLOUD_PROJECT;
+  const projectId = process.env['OTLP_GOOGLE_CLOUD_PROJECT'];
   if (!projectId) {
     console.error(
       '🛑 Error: OTLP_GOOGLE_CLOUD_PROJECT environment variable is not exported.',

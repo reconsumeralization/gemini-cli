@@ -5,19 +5,19 @@
  */
 
 import { vi } from 'vitest';
-import { registerCleanup, runExitCleanup } from './cleanup';
+import { registerCleanup, runExitCleanup } from './cleanup.js';
 
 describe('cleanup', () => {
-  const originalCleanupFunctions = global['cleanupFunctions'];
+  const originalCleanupFunctions = (global as any)['cleanupFunctions']; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   beforeEach(() => {
     // Isolate cleanup functions for each test
-    global['cleanupFunctions'] = [];
+    (global as any)['cleanupFunctions'] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   afterAll(() => {
     // Restore original cleanup functions
-    global['cleanupFunctions'] = originalCleanupFunctions;
+    (global as any)['cleanupFunctions'] = originalCleanupFunctions; // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   it('should run a registered synchronous function', async () => {

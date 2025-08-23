@@ -10,7 +10,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as net from 'node:net';
 import * as child_process from 'node:child_process';
-import { IdeClient } from '../packages/core/src/ide/ide-client.js';
+import type { ChildProcess } from 'node:child_process';
+import { IdeClient } from '@google/gemini-cli-core';
 
 import { TestMcpServer } from './test-mcp-server.js';
 
@@ -67,7 +68,7 @@ describe('IdeClient fallback connection logic', () => {
     process.env['TERM_PROGRAM'] = 'vscode';
     process.env['GEMINI_CLI_IDE_WORKSPACE_PATH'] = process.cwd();
     // Reset instance
-    IdeClient.instance = undefined;
+    (IdeClient as any).resetInstance(); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   afterEach(async () => {
@@ -138,11 +139,11 @@ describe.skip('getIdeProcessId', () => {
       );
 
       let out = '';
-      child.stdout?.on('data', (data) => {
+      child.stdout?.on('data', (data: Buffer) => {
         out += data.toString();
       });
 
-      child.on('close', (code) => {
+      child.on('close', (code: number) => {
         if (code === 0) {
           resolve(out.trim());
         } else {
@@ -173,7 +174,7 @@ describe('IdeClient with proxy', () => {
     vi.stubEnv('GEMINI_CLI_IDE_WORKSPACE_PATH', process.cwd());
 
     // Reset instance
-    IdeClient.instance = undefined;
+    (IdeClient as any).resetInstance(); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   afterEach(async () => {

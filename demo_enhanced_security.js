@@ -10,11 +10,11 @@
  * Demonstration of the Enhanced Security System with User Profiles
  */
 
-console.log('🚀 GEMINI CLI ENHANCED SECURITY SYSTEM DEMO');
-console.log('═════════════════════════════════════════════════════════════\n');
-
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable no-undef */
+
+console.log('🚀 GEMINI CLI ENHANCED SECURITY SYSTEM DEMO');
+console.log('═════════════════════════════════════════════════════════════\n');
 
 try {
   const {

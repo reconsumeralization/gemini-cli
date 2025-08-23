@@ -118,7 +118,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {
@@ -166,7 +166,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 1,
         totalFail: 0,
         totalDurationMs: 250,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {
@@ -204,7 +204,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {
@@ -226,7 +226,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 8,
         totalFail: 2,
         totalDurationMs: 1000,
-        totalDecisions: { accept: 6, reject: 2, modify: 2 },
+        totalDecisions: { accept: 6, reject: 2, modify: 2, auto_accept: 0 },
         byName: {},
       },
       files: {
@@ -249,7 +249,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {
@@ -275,7 +275,7 @@ describe('computeSessionStats', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
       files: {

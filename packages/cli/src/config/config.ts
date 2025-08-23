@@ -627,3 +627,5 @@ function mergeExcludeTools(
   }
   return [...allExcludeTools];
 }
+
+export { Config };

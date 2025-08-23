@@ -31,7 +31,9 @@ import { makeFakeConfig } from '../../test-utils/config.js';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../mocks/msw.js';
 import { UserPromptEvent, makeChatCompressionEvent } from '../types.js';
-import { GIT_COMMIT_INFO, CLI_VERSION } from '../../generated/git-commit.js';
+// Use environment variables as fallback values (same as main file)
+const GIT_COMMIT_INFO = process.env['GEMINI_CLI_GIT_COMMIT'] || 'unknown';
+const CLI_VERSION = process.env['GEMINI_CLI_VERSION'] || '0.0.0';
 import { UserAccountManager } from '../../utils/userAccountManager.js';
 import { InstallationManager } from '../../utils/installationManager.js';
 

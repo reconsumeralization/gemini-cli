@@ -1,6 +1,12 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Basic verification that our security files exist and contain expected functions
-const fs = require('fs');
-const path = require('path');
+/* global console, process */
+import fs from 'fs';
 
 console.log('🔍 Basic Security Implementation Verification\n');
 

@@ -10,7 +10,7 @@
  * Simple test script to verify our security fixes work
  */
 
-/* eslint-disable no-console */
+ 
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable no-undef */
 

@@ -46,7 +46,7 @@ const setupMocks = ({
   slashCompletionRange?: { completionStart: number; completionEnd: number };
 }) => {
   // Mock for @-completions
-  (useAtCompletion as vi.Mock).mockImplementation(
+  (useAtCompletion as ReturnType<typeof vi.fn>).mockImplementation(
     ({
       enabled,
       setSuggestions,
@@ -62,7 +62,7 @@ const setupMocks = ({
   );
 
   // Mock for /-completions
-  (useSlashCompletion as vi.Mock).mockImplementation(
+  (useSlashCompletion as ReturnType<typeof vi.fn>).mockImplementation(
     ({
       enabled,
       setSuggestions,

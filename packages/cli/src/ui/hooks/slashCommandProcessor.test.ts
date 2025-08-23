@@ -87,6 +87,7 @@ import {
   SlashCommandStatus,
   makeFakeConfig,
 } from '@google/gemini-cli-core/index.js';
+import { Config } from '../../config/config.js';
 
 function createTestCommand(
   overrides: Partial<SlashCommand>,
@@ -132,7 +133,7 @@ describe('useSlashCommandProcessor', () => {
 
     const { result } = renderHook(() =>
       useSlashCommandProcessor(
-        mockConfig,
+        mockConfig as unknown as Config,
         mockSettings,
         mockAddItem,
         mockClearItems,
@@ -148,6 +149,7 @@ describe('useSlashCommandProcessor', () => {
         vi.fn(), // openSettingsDialog
         vi.fn(), // toggleVimEnabled
         setIsProcessing,
+        vi.fn(), // setGeminiMdFileCount
       ),
     );
 
@@ -883,7 +885,7 @@ describe('useSlashCommandProcessor', () => {
       const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
       const { unmount } = renderHook(() =>
         useSlashCommandProcessor(
-          mockConfig,
+          mockConfig as unknown as Config,
           mockSettings,
           mockAddItem,
           mockClearItems,
@@ -954,7 +956,7 @@ describe('useSlashCommandProcessor', () => {
       });
 
       expect(logSlashCommand).toHaveBeenCalledWith(
-        mockConfig,
+        mockConfig as unknown as Config,
         expect.objectContaining({
           command: 'logtest',
           subcommand: undefined,
@@ -985,7 +987,7 @@ describe('useSlashCommandProcessor', () => {
       });
 
       expect(logSlashCommand).toHaveBeenCalledWith(
-        mockConfig,
+        mockConfig as unknown as Config,
         expect.objectContaining({
           command: 'fail',
           status: 'error',

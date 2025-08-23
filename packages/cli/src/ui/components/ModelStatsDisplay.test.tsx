@@ -28,6 +28,7 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
       metrics,
       lastPromptTokenCount: 0,
       promptCount: 5,
+      sessionId: 'test-session-id',
     },
 
     getPromptCount: () => 5,
@@ -54,12 +55,13 @@ describe('<ModelStatsDisplay />', () => {
   it('should render "no API calls" message when there are no active models', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 0,
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
     });
@@ -90,9 +92,10 @@ describe('<ModelStatsDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
     });
 
     const output = lastFrame();
@@ -133,9 +136,10 @@ describe('<ModelStatsDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
     });
 
     const output = lastFrame();
@@ -176,9 +180,10 @@ describe('<ModelStatsDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
     });
 
     const output = lastFrame();
@@ -211,9 +216,10 @@ describe('<ModelStatsDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
     });
 
     expect(lastFrame()).toMatchSnapshot();
@@ -239,9 +245,10 @@ describe('<ModelStatsDisplay />', () => {
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
     });
 
     const output = lastFrame();

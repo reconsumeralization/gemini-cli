@@ -6,6 +6,7 @@
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import yargs from 'yargs';
+import type { Argv } from 'yargs';
 import { loadSettings, SettingScope } from '../../config/settings.js';
 import { removeCommand } from './remove.js';
 
@@ -22,11 +23,11 @@ vi.mock('../../config/settings.js', async () => {
   };
 });
 
-const mockedLoadSettings = loadSettings as vi.Mock;
+const mockedLoadSettings = loadSettings as ReturnType<typeof vi.fn>;
 
 describe('mcp remove command', () => {
-  let parser: yargs.Argv;
-  let mockSetValue: vi.Mock;
+  let parser: Argv;
+  let mockSetValue: ReturnType<typeof vi.fn>;
   let mockSettings: Record<string, unknown>;
 
   beforeEach(() => {

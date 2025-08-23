@@ -17,6 +17,8 @@ import {
   parseCommandString,
   safeSpawnProxy,
   validateSandboxMounts,
+  isValidEnvKey,
+  isSafeEnvValue,
 } from './sandbox_helpers.js';
 
 vi.mock('node:child_process', () => ({
@@ -229,5 +231,266 @@ describe('Information Disclosure Prevention', () => {
     expect(safe['ENV']).toBeUndefined();
     expect(safe['IFS']).toBeUndefined();
     expect(safe['NODE_OPTIONS']).toBeUndefined();
+  });
+});
+
+describe('Environment Variable Validation', () => {
+  describe('isValidEnvKey', () => {
+    it('accepts valid environment variable names', () => {
+      const validKeys = [
+        'PATH',
+        'HOME',
+        'LANG',
+        'USER',
+        'TERM',
+        'SHELL',
+        'EDITOR',
+        'PAGER',
+        'TZ',
+        'LC_ALL',
+        'HTTP_PROXY',
+        'HTTPS_PROXY',
+        'NO_PROXY',
+        'DOCKER_HOST',
+        'KUBECONFIG',
+        'DATABASE_URL',
+        'REDIS_URL',
+        'API_KEY',
+        'SECRET_KEY',
+        'DEBUG',
+        'VERBOSE',
+        'NODE_ENV'
+      ];
+
+      validKeys.forEach(key => {
+        expect(isValidEnvKey(key)).toBe(true);
+      });
+    });
+
+    it('rejects invalid environment variable names', () => {
+      const invalidKeys = [
+        '',           // empty string
+        ' ',          // space only
+        '\t',         // tab only
+        '123START',   // starts with number
+        'CONTAINS SPACE',  // contains space
+        'HAS-DASH',   // contains dash
+        'has.dot',    // contains dot
+        'has/slash',  // contains slash
+        'has\\backslash', // contains backslash
+        'has"quote',  // contains quote
+        "has'quote",  // contains single quote
+        'has=equals', // contains equals
+        'TOO_LONG_KEY_' + 'A'.repeat(250), // too long
+        'a'.repeat(256), // exactly 256 chars (should be invalid)
+        'UNDEFINED',  // reserved word
+        'NULL',       // reserved word
+        'true',       // boolean literal
+        'false'       // boolean literal
+      ];
+
+      invalidKeys.forEach(key => {
+        expect(isValidEnvKey(key)).toBe(false);
+      });
+    });
+
+    it('rejects null and undefined values', () => {
+      expect(isValidEnvKey(null as unknown as string)).toBe(false);
+      expect(isValidEnvKey(undefined as unknown as string)).toBe(false);
+    });
+
+    it('accepts single character keys', () => {
+      expect(isValidEnvKey('A')).toBe(true);
+      expect(isValidEnvKey('Z')).toBe(true);
+      expect(isValidEnvKey('a')).toBe(true);
+      expect(isValidEnvKey('z')).toBe(true);
+    });
+
+    it('accepts keys with underscores', () => {
+      expect(isValidEnvKey('VALID_KEY')).toBe(true);
+      expect(isValidEnvKey('another_valid_key')).toBe(true);
+      expect(isValidEnvKey('_STARTS_WITH_UNDERSCORE')).toBe(true);
+      expect(isValidEnvKey('ENDS_WITH_UNDERSCORE_')).toBe(true);
+    });
+
+    it('accepts keys with numbers after first character', () => {
+      expect(isValidEnvKey('KEY1')).toBe(true);
+      expect(isValidEnvKey('key123')).toBe(true);
+      expect(isValidEnvKey('A1B2C3')).toBe(true);
+    });
+  });
+
+  describe('isSafeEnvValue', () => {
+    it('accepts safe environment variable values', () => {
+      const safeValues = [
+        'hello',
+        'world123',
+        '/usr/bin:/bin:/usr/local/bin',
+        'en_US.UTF-8',
+        'xterm-256color',
+        '/home/user',
+        'testuser',
+        '123',
+        'true',
+        'false',
+        'production',
+        'development',
+        'http://localhost:3000',
+        'https://api.example.com',
+        'postgres://user:pass@localhost:5432/db',
+        'redis://localhost:6379',
+        'file:///tmp/cache',
+        'npm_config_cache=/tmp/npm-cache',
+        'DOCKER_TLS_VERIFY=1',
+        'no_proxy=localhost,127.0.0.1',
+        'DEBUG=*',
+        'VERBOSE=1'
+      ];
+
+      safeValues.forEach(value => {
+        expect(isSafeEnvValue(value)).toBe(true);
+      });
+    });
+
+    it('rejects dangerous environment variable values', () => {
+      const dangerousValues = [
+        'value; rm -rf /',           // command injection with semicolon
+        'value && evil',             // command injection with AND
+        'value || bad',              // command injection with OR
+        'value | cat /etc/passwd',   // pipe injection
+        'value`rm -rf /`',           // backtick injection
+        'value$(rm -rf /)',          // command substitution injection
+        'value${USER}',              // variable expansion
+        'value$((1+1))',             // arithmetic expansion
+        'value<(evil)',              // process substitution
+        'value>(output)',            // process substitution
+        'value& background',         // background process
+        'value; background &',       // background process with semicolon
+        'value > /dev/null',         // redirection to device
+        'value < /etc/passwd',       // redirection from sensitive file
+        'value >> /etc/hosts',       // append redirection to system file
+        'value 2>&1',                // stderr to stdout redirection
+        'value 1>&2',                // stdout to stderr redirection
+        'value>&2',                  // combined redirection
+        'value>>&2',                 // combined append redirection
+        'value|& cat',               // pipe with stderr
+        'value;& echo',              // multiple commands with semicolon
+        'value&& echo',              // multiple commands with AND
+        'value|| echo',              // multiple commands with OR
+        'value;;; echo',             // multiple semicolons
+        'value&&& echo',             // multiple ampersands
+        'value||| echo',             // multiple pipes
+        'value;;; echo'              // multiple semicolons
+      ];
+
+      dangerousValues.forEach(value => {
+        expect(isSafeEnvValue(value)).toBe(false);
+      });
+    });
+
+    it('rejects values that are too long', () => {
+      const longValue = 'A'.repeat(5000); // Much longer than 4096 limit
+      expect(isSafeEnvValue(longValue)).toBe(false);
+    });
+
+    it('rejects null and undefined values', () => {
+      expect(isSafeEnvValue(null as unknown as string)).toBe(false);
+      expect(isSafeEnvValue(undefined as unknown as string)).toBe(false);
+    });
+
+    it('accepts empty string', () => {
+      expect(isSafeEnvValue('')).toBe(true);
+    });
+
+    it('accepts values exactly at length limit', () => {
+      const exactly4096 = 'A'.repeat(4096);
+      expect(isSafeEnvValue(exactly4096)).toBe(true);
+    });
+
+    it('rejects values over length limit', () => {
+      const over4096 = 'A'.repeat(4097);
+      expect(isSafeEnvValue(over4096)).toBe(false);
+    });
+
+    it('handles special characters in safe contexts', () => {
+      const safeSpecialValues = [
+        'hello world',              // spaces
+        'hello\tworld',             // tabs
+        'hello\nworld',             // newlines
+        'hello\rworld',             // carriage returns
+        'hello:world',              // colons
+        'hello@world.com',          // at symbol
+        'hello.world',              // dot
+        'hello-world',              // dash
+        'hello_world',              // underscore
+        'hello+world',              // plus
+        'hello=world',              // equals (in value context)
+        'hello?world',              // question mark
+        'hello#world',              // hash
+        'hello$world',              // dollar (not followed by special chars)
+        'hello%world',              // percent
+        'hello^world',              // caret
+        'hello&world',              // ampersand (not followed by another &)
+        'hello*world',              // asterisk
+        'hello(world)',             // parentheses
+        'hello[world]',             // brackets
+        'hello{world}',             // braces
+        'hello|world',              // pipe (single)
+        'hello;world',              // semicolon (single)
+        'hello\'world\'',           // single quotes
+        'hello"world"',             // double quotes
+        'hello\\world',             // backslash
+        'hello/world',              // forward slash
+        'hello\\world',             // backslash
+        'C:\\Windows\\System32',    // Windows path
+        '/usr/local/bin/node',      // Unix path
+        '192.168.1.1',              // IP address
+        'example.com:8080',         // host:port
+        'file:///path/to/file',     // file URI
+        'data:text/plain;base64,SGVsbG8=', // data URI
+      ];
+
+      safeSpecialValues.forEach(value => {
+        expect(isSafeEnvValue(value)).toBe(true);
+      });
+    });
+
+    it('rejects dangerous shell metacharacters', () => {
+      const dangerousMetaChars = [
+        ';', '&&', '||', '|', '&', '`', '$', '(', ')', '<', '>', '<<', '>>',
+        '2>&1', '1>&2', '>&', '<&', '>>', '<<', '<<<', '&>', '>|', '<>',
+        '&>>', '&>', '&&&', '|||', ';;;'
+      ];
+
+      dangerousMetaChars.forEach(char => {
+        const dangerousValue = `prefix${char}dangerous`;
+        expect(isSafeEnvValue(dangerousValue)).toBe(false);
+      });
+    });
+
+    it('rejects dangerous command patterns', () => {
+      const dangerousPatterns = [
+        '/dev/null',
+        '/dev/zero',
+        '/dev/random',
+        '/dev/urandom',
+        '/etc/passwd',
+        '/etc/shadow',
+        '/etc/sudoers',
+        '/etc/hosts',
+        '/etc/fstab',
+        '/root/.ssh',
+        'authorized_keys',
+        'id_rsa',
+        'id_dsa',
+        '.bash_history',
+        '.ssh_history'
+      ];
+
+      dangerousPatterns.forEach(pattern => {
+        const dangerousValue = `/some/path/${pattern}`;
+        expect(isSafeEnvValue(dangerousValue)).toBe(false);
+      });
+    });
   });
 });

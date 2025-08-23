@@ -5,10 +5,10 @@
  */
 
 import { Config } from '../config/config.js';
-import os from 'os';
+import * as os from 'os';
 import { quote } from 'shell-quote';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * An identifier for the shell type.
@@ -448,7 +448,7 @@ export function checkCommandPermissions(
  */
 // Safe command execution control - comprehensive safety layers
 // Base allowed commands - users can customize this
-let ALLOWED_COMMANDS = new Set([
+const ALLOWED_COMMANDS = new Set([
   'echo', 'ls', 'cat', 'grep', 'head', 'tail', 'wc', 'sort', 'uniq',
   'find', 'pwd', 'whoami', 'date', 'which', 'type', 'file', 'stat',
   'ps', 'top', 'df', 'du', 'free', 'uptime', 'id', 'groups', 'hostname',
@@ -457,7 +457,7 @@ let ALLOWED_COMMANDS = new Set([
 ]);
 
 // User-customizable security settings
-interface SecurityProfile {
+export interface SecurityProfile {
   name: string;
   description: string;
   allowedCommands: Set<string>;
@@ -512,25 +512,9 @@ const SECURITY_PROFILES: Record<string, SecurityProfile> = {
 };
 
 // Current active security profile
-let currentProfile: SecurityProfile = SECURITY_PROFILES.standard;
+let currentProfile: SecurityProfile = SECURITY_PROFILES['standard'];
 
-const DANGEROUS_COMMANDS = new Set([
-  'rm', 'rmdir', 'del', 'format', 'fdisk', 'mkfs', 'mount', 'umount',
-  'sudo', 'su', 'chmod', 'chown', 'chgrp', 'passwd', 'useradd', 'userdel',
-  'groupadd', 'groupdel', 'iptables', 'netsh', 'ifconfig', 'route',
-  'reboot', 'shutdown', 'halt', 'poweroff', 'systemctl', 'service',
-  'kill', 'killall', 'pkill', 'pgrep', 'nohup', 'screen', 'tmux',
-  'crontab', 'at', 'batch', 'eval', 'exec', 'system', 'sh', 'bash',
-  'zsh', 'fish', 'dash', 'ash', 'busybox', 'tcsh', 'csh', 'ksh',
-  'dd', 'mkfs', 'fsck', 'fdisk', 'parted', 'gparted', 'cfdisk',
-  'wipefs', 'blkid', 'lsblk', 'fdisk', 'sfdisk', 'gdisk'
-]);
 
-const RISKY_COMMANDS = new Set([
-  'cp', 'mv', 'cp', 'scp', 'rsync', 'tar', 'gzip', 'gunzip', 'bzip2',
-  'xz', '7z', 'zip', 'unzip', 'rar', 'unrar', 'wget', 'curl',
-  'ssh', 'scp', 'rsync', 'ftp', 'sftp', 'telnet', 'nc', 'nmap'
-]);
 
 const FORBIDDEN_TOKENS = [
   '&&', '||', ';', '|', '$', '`', '<(', '>)', '${', '$(',
@@ -552,7 +536,7 @@ const DANGEROUS_PATTERNS = [
 /**
  * Enhanced command safety validation with comprehensive security layers
  */
-function isCommandSafe(command: string): { safe: boolean; reason?: string; risk?: 'low' | 'medium' | 'high' } {
+export function isCommandSafe(command: string): { safe: boolean; reason?: string; risk?: 'low' | 'medium' | 'high' } {
   if (!command || typeof command !== 'string') {
     return { safe: false, reason: 'Invalid command string' };
   }
@@ -631,28 +615,28 @@ function logCommandExecution(command: string, allowed: boolean, reason?: string,
     const approvalMode = config?.getApprovalMode() || 'default';
     const logEntry = {
       timestamp: new Date().toISOString(),
-      command: command,
-      allowed: allowed,
+      command,
+      allowed,
       reason: reason || 'No reason provided',
       risk: risk || 'unknown',
-      user: process.env.USER || process.env.USERNAME || 'unknown',
+      user: process.env['USER'] || process.env['USERNAME'] || 'unknown',
       pid: process.pid,
-      approvalMode: approvalMode,
+      approvalMode,
       sessionId: config?.getSessionId?.() || 'unknown'
     };
 
+    const mode = 0o600;
     const logDir = path.join(os.tmpdir(), 'gemini-cli-security');
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
     }
-
     const logFile = path.join(logDir, 'command-audit.log');
-    fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n', { mode: 0o600 });
+    fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n', { mode });
 
     // Also log to a human-readable security summary
     const summaryFile = path.join(logDir, 'security-summary.txt');
     const summary = `[${new Date().toLocaleString()}] ${allowed ? '✅' : '❌'} ${risk?.toUpperCase()} - ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}\n`;
-    fs.appendFileSync(summaryFile, summary, { mode: 0o600 });
+    fs.appendFileSync(summaryFile, summary, { mode });
 
   } catch (error) {
     // Don't let logging errors break command execution

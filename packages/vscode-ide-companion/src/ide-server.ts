@@ -9,7 +9,8 @@ import { IdeContextNotificationSchema } from '@google/gemini-cli-core';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import express, { type Request, type Response } from 'express';
+import express, { type Express } from 'express';
+import type { Request, Response } from 'express-serve-static-core';
 import { randomUUID } from 'node:crypto';
 import { type Server as HTTPServer } from 'node:http';
 import * as path from 'node:path';
@@ -100,7 +101,7 @@ export class IDEServer {
       const transports: { [sessionId: string]: StreamableHTTPServerTransport } =
         {};
 
-      const app = express();
+      const app: Express = express();
       app.use(express.json());
       const mcpServer = createMcpServer(this.diffManager);
 
@@ -177,7 +178,8 @@ export class IDEServer {
         }
 
         try {
-          await transport.handleRequest(req, res, req.body);
+          // Type assertion needed due to Express 5.x compatibility with MCP SDK
+          await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res as unknown as Parameters<typeof transport.handleRequest>[1], req.body);
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
@@ -207,7 +209,8 @@ export class IDEServer {
 
         const transport = transports[sessionId];
         try {
-          await transport.handleRequest(req, res);
+          // Type assertion needed due to Express 5.x compatibility with MCP SDK
+          await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res as unknown as Parameters<typeof transport.handleRequest>[1]);
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';

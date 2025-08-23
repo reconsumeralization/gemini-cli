@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   TestRig,
-  createToolCallErrorMessage,
   printDebugInfo,
   validateModelOutput,
 } from './test-helper.js';
@@ -27,14 +26,7 @@ describe('write_file', () => {
       printDebugInfo(rig, result);
     }
 
-    const allTools = rig.readToolLogs();
-    expect(foundToolCall, 'Expected to find a write_file tool call').toBeTruthy(
-      createToolCallErrorMessage(
-        'write_file',
-        allTools.map((t) => t.toolRequest.name),
-        result,
-      ),
-    );
+    expect(foundToolCall).toBeTruthy();
 
     // Validate model output - will throw if no output, warn if missing expected content
     validateModelOutput(result, 'dad.txt', 'Write file test');

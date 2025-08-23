@@ -1,9 +1,16 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Simple synchronous test of our security functions
+/* global console */
 console.log('🧪 Testing Security Functions...\n');
 
 // Test environment filtering
 try {
-  const { parseAndFilterSandboxEnv } = require('./packages/cli/src/utils/sandbox_helpers.js');
+  const { parseAndFilterSandboxEnv } = await import('./packages/cli/src/utils/sandbox_helpers.js');
 
   const testInput = 'SAFE=test,GEMINI_API_KEY=secret,PASSWORD=hack';
   const result = parseAndFilterSandboxEnv(testInput);
@@ -22,7 +29,7 @@ try {
 
 // Test command injection prevention
 try {
-  const { isSafeEnvValue } = require('./packages/cli/src/utils/sandbox_helpers.js');
+  const { isSafeEnvValue } = await import('./packages/cli/src/utils/sandbox_helpers.js');
 
   const tests = [
     { input: 'hello world', expected: true, name: 'Safe value' },
@@ -47,7 +54,7 @@ try {
 
 // Test dangerous environment variables
 try {
-  const { buildSafeEnv } = require('./packages/cli/src/utils/sandbox_helpers.js');
+  const { buildSafeEnv } = await import('./packages/cli/src/utils/sandbox_helpers.js');
 
   const dangerousEnv = {
     PATH: '/usr/bin',

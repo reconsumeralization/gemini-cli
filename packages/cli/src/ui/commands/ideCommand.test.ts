@@ -194,7 +194,6 @@ describe('ideCommand', () => {
       } as unknown as ReturnType<Config['getIdeClient']>);
       vi.mocked(core.getIdeInstaller).mockReturnValue({
         install: mockInstall,
-        isInstalled: vi.fn(),
       });
       platformSpy.mockReturnValue('linux');
     });

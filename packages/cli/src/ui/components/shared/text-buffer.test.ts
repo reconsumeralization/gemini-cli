@@ -22,6 +22,10 @@ import {
 } from './text-buffer.js';
 import { cpLen } from '../../utils/textUtils.js';
 
+/**
+ * Initial state for text buffer tests
+ * @description Provides a clean starting state for all text buffer reducer tests
+ */
 const initialState: TextBufferState = {
   lines: [''],
   cursorRow: 0,
@@ -31,6 +35,8 @@ const initialState: TextBufferState = {
   redoStack: [],
   clipboard: null,
   selectionAnchor: null,
+
+  viewportWidth: 80,
 };
 
 describe('textBufferReducer', () => {
@@ -172,7 +178,12 @@ describe('textBufferReducer', () => {
   });
 });
 
-// Helper to get the state from the hook
+/**
+ * Helper function to extract and validate buffer state from the hook result
+ * @description Extracts state from the TextBuffer hook result and validates character integrity
+ * @param result - The hook result containing the TextBuffer
+ * @returns Extracted state object with validated characters
+ */
 const getBufferState = (result: { current: TextBuffer }) => {
   expect(result.current).toHaveOnlyValidCharacters();
   return {
@@ -188,6 +199,7 @@ const getBufferState = (result: { current: TextBuffer }) => {
 };
 
 describe('useTextBuffer', () => {
+  /** Default viewport configuration for tests */
   let viewport: Viewport;
 
   beforeEach(() => {
@@ -999,6 +1011,7 @@ describe('useTextBuffer', () => {
     });
 
     it('should correctly handle repeated pasting of long text', () => {
+      /** Long text sample for testing repeated paste operations */
       const longText = `not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
 
 Why do we use it?
@@ -1321,6 +1334,12 @@ Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots 
   });
 });
 
+/**
+ * Tests for converting between text offset and logical position
+ * @description These tests verify the bidirectional conversion between character offsets
+ * and logical row/column positions in text, handling multi-line text, unicode characters,
+ * and edge cases like empty lines and text boundaries.
+ */
 describe('offsetToLogicalPos', () => {
   it('should return [0,0] for offset 0', () => {
     expect(offsetToLogicalPos('any text', 0)).toEqual([0, 0]);
@@ -1417,6 +1436,12 @@ describe('offsetToLogicalPos', () => {
   });
 });
 
+/**
+ * Tests for converting from logical position to text offset
+ * @description These tests verify the conversion from logical row/column positions
+ * back to character offsets, ensuring proper handling of multi-line text,
+ * empty lines, and boundary conditions.
+ */
 describe('logicalPosToOffset', () => {
   it('should convert row/col position to offset correctly', () => {
     const lines = ['hello', 'world', '123'];
@@ -1477,6 +1502,12 @@ describe('logicalPosToOffset', () => {
   });
 });
 
+/**
+ * Tests for vim-style operations in the text buffer reducer
+ * @description These tests verify vim-style editing operations like line deletion,
+ * ensuring proper cursor positioning, undo stack management, and edge case handling
+ * for single-line and multi-line scenarios.
+ */
 describe('textBufferReducer vim operations', () => {
   describe('vim_delete_line', () => {
     it('should delete a single line including newline in multi-line text', () => {
@@ -1485,12 +1516,12 @@ describe('textBufferReducer vim operations', () => {
         cursorRow: 1,
         cursorCol: 2,
         preferredCol: null,
-        visualLines: [['line1'], ['line2'], ['line3']],
-        visualScrollRow: 0,
-        visualCursor: { row: 1, col: 2 },
-        viewport: { width: 10, height: 5 },
         undoStack: [],
         redoStack: [],
+        clipboard: null,
+        selectionAnchor: null,
+        
+        viewportWidth: 0,
       };
 
       const action: TextBufferAction = {
@@ -1513,12 +1544,12 @@ describe('textBufferReducer vim operations', () => {
         cursorRow: 1,
         cursorCol: 0,
         preferredCol: null,
-        visualLines: [['line1'], ['line2'], ['line3'], ['line4']],
-        visualScrollRow: 0,
-        visualCursor: { row: 1, col: 0 },
-        viewport: { width: 10, height: 5 },
         undoStack: [],
         redoStack: [],
+        clipboard: null,
+        selectionAnchor: null,
+        
+        viewportWidth: 0,
       };
 
       const action: TextBufferAction = {
@@ -1541,12 +1572,12 @@ describe('textBufferReducer vim operations', () => {
         cursorRow: 0,
         cursorCol: 5,
         preferredCol: null,
-        visualLines: [['only line']],
-        visualScrollRow: 0,
-        visualCursor: { row: 0, col: 5 },
-        viewport: { width: 10, height: 5 },
         undoStack: [],
         redoStack: [],
+        clipboard: null,
+        selectionAnchor: null,
+        
+        viewportWidth: 0,
       };
 
       const action: TextBufferAction = {
@@ -1569,12 +1600,12 @@ describe('textBufferReducer vim operations', () => {
         cursorRow: 1,
         cursorCol: 0,
         preferredCol: null,
-        visualLines: [['line1'], ['line2']],
-        visualScrollRow: 0,
-        visualCursor: { row: 1, col: 0 },
-        viewport: { width: 10, height: 5 },
         undoStack: [],
         redoStack: [],
+        clipboard: null,
+        selectionAnchor: null,
+        
+        viewportWidth: 0,
       };
 
       const action: TextBufferAction = {
@@ -1597,12 +1628,12 @@ describe('textBufferReducer vim operations', () => {
         cursorRow: 0,
         cursorCol: 0,
         preferredCol: null,
-        visualLines: [['line1'], ['line2'], ['line3'], ['line4']],
-        visualScrollRow: 0,
-        visualCursor: { row: 0, col: 0 },
-        viewport: { width: 10, height: 5 },
         undoStack: [],
         redoStack: [],
+        clipboard: null,
+        selectionAnchor: null,
+        
+        viewportWidth: 0,
       };
 
       // Delete all 4 lines with 4dd
@@ -1636,6 +1667,13 @@ describe('textBufferReducer vim operations', () => {
   });
 });
 
+/**
+ * Tests for Unicode text processing helper functions
+ * @description These tests verify the correct handling of Unicode characters,
+ * including combining characters, precomposed characters, right-to-left text,
+ * Chinese characters, and various scripts in word boundary detection and
+ * character classification functions.
+ */
 describe('Unicode helper functions', () => {
   describe('findWordEndInLine with Unicode', () => {
     it('should handle combining characters', () => {

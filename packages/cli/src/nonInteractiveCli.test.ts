@@ -33,26 +33,25 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
 describe('runNonInteractive', () => {
   let mockConfig: Config;
   let mockToolRegistry: ToolRegistry;
-  let mockCoreExecuteToolCall: vi.Mock;
-  let mockShutdownTelemetry: vi.Mock;
-  let consoleErrorSpy: vi.SpyInstance;
-  let processExitSpy: vi.SpyInstance;
-  let processStdoutSpy: vi.SpyInstance;
+  let mockCoreExecuteToolCall: ReturnType<typeof vi.fn>;
+  let mockShutdownTelemetry: ReturnType<typeof vi.fn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let processExitSpy: ReturnType<typeof vi.spyOn>;
+  let processStdoutSpy: ReturnType<typeof vi.spyOn>;
   let mockGeminiClient: {
-    sendMessageStream: vi.Mock;
+    sendMessageStream: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     mockCoreExecuteToolCall = vi.mocked(executeToolCall);
     mockShutdownTelemetry = vi.mocked(shutdownTelemetry);
-
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     processExitSpy = vi
       .spyOn(process, 'exit')
-      .mockImplementation((() => {}) as (code?: number) => never);
+      .mockImplementation(() => undefined as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     processStdoutSpy = vi
       .spyOn(process.stdout, 'write')
-      .mockImplementation(() => true);
+      .mockImplementation(() => true) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     mockToolRegistry = {
       getTool: vi.fn(),

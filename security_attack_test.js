@@ -11,7 +11,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable no-undef */
+ 
 /* global console, require */
 
 console.log('🧪 Testing Security Attack Scenarios...\n');

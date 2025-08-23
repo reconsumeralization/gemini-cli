@@ -11,6 +11,7 @@ import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { useStdin } from 'ink';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
+import { vi } from 'vitest';
 
 // Mock the 'ink' module to control stdin
 vi.mock('ink', async (importOriginal) => {
@@ -54,8 +55,8 @@ vi.mock('readline', () => {
 class MockStdin extends EventEmitter {
   isTTY = true;
   setRawMode = vi.fn();
-  on = this.addListener;
-  removeListener = this.removeListener;
+  override on = this.addListener;
+  override removeListener = super.removeListener;
   write = vi.fn();
   resume = vi.fn();
 
@@ -110,7 +111,7 @@ describe('useKeypress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stdin = new MockStdin();
-    (useStdin as vi.Mock).mockReturnValue({
+    (useStdin as ReturnType<typeof vi.fn>).mockReturnValue({
       stdin,
       setRawMode: mockSetRawMode,
     });

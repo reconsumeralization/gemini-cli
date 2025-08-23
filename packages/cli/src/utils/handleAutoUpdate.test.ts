@@ -25,7 +25,6 @@ vi.mock('./updateEventEmitter.js', async () => {
   return {
     ...actual,
     updateEventEmitter: {
-      ...actual.updateEventEmitter,
       emit: vi.fn(),
     },
   };
@@ -227,7 +226,17 @@ describe('handleAutoUpdate', () => {
   });
 
   it('should use the "@nightly" tag for nightly updates', async () => {
-    mockUpdateInfo.update.latest = '2.0.0-nightly';
+    // Create a new mock object with nightly version properties
+    const nightlyUpdateInfo: UpdateObject = {
+      update: {
+        latest: '2.0.0-nightly',
+        current: '1.0.0',
+        type: 'nightly' as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        name: '@google/gemini-cli',
+      },
+      message: 'An update is available!',
+    };
+    
     mockGetInstallationInfo.mockReturnValue({
       updateCommand: 'npm i -g @google/gemini-cli@latest',
       updateMessage: 'This is an additional message.',
@@ -235,7 +244,7 @@ describe('handleAutoUpdate', () => {
       packageManager: PackageManager.NPM,
     });
 
-    handleAutoUpdate(mockUpdateInfo, mockSettings, '/root', mockSpawn);
+    handleAutoUpdate(nightlyUpdateInfo, mockSettings, '/root', mockSpawn);
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'npm i -g @google/gemini-cli@nightly',

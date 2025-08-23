@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import * as os from 'os';
 import * as path from 'path';
 import { ShellTool, EditTool, WriteFileTool } from '@google/gemini-cli-core';
-import { loadCliConfig, parseArguments } from './config.js';
+import { loadCliConfig, parseArguments, CliArgs } from './config.js';
 import { Settings } from './settings.js';
 import { Extension } from './extension.js';
 import * as ServerConfig from '@google/gemini-cli-core';
@@ -642,6 +642,7 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           version: '1.0.0',
         },
         contextFiles: ['/path/to/ext1/GEMINI.md'],
+        path: '/path/to/ext1',
       },
       {
         config: {
@@ -649,6 +650,7 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           version: '1.0.0',
         },
         contextFiles: [],
+        path: '/path/to/ext2',
       },
       {
         config: {
@@ -659,6 +661,7 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           '/path/to/ext3/context1.md',
           '/path/to/ext3/context2.md',
         ],
+        path: '/path/to/ext3',
       },
     ];
     const argv = await parseArguments();
@@ -726,6 +729,7 @@ describe('mergeMcpServers', () => {
           },
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
     ];
     const originalSettings = JSON.parse(JSON.stringify(settings));
@@ -758,6 +762,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool3', 'tool4'],
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
       {
         config: {
@@ -766,6 +771,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool5'],
         },
         contextFiles: [],
+        path: '/path/to/ext2',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -792,6 +798,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2', 'tool3'],
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -818,6 +825,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2', 'tool3'],
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
       {
         config: {
@@ -826,6 +834,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool3', 'tool4'],
         },
         contextFiles: [],
+        path: '/path/to/ext2',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -899,6 +908,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool1', 'tool2'],
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -925,6 +935,7 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2'],
         },
         contextFiles: [],
+        path: '/path/to/ext1',
       },
     ];
     const originalSettings = JSON.parse(JSON.stringify(settings));
@@ -1133,7 +1144,7 @@ describe('Approval mode tool exclusion logic', () => {
     const extensions: Extension[] = [];
 
     await expect(
-      loadCliConfig(settings, extensions, 'test-session', invalidArgv),
+      loadCliConfig(settings, extensions, 'test-session', invalidArgv as CliArgs),
     ).rejects.toThrow(
       'Invalid approval mode: invalid_mode. Valid values are: yolo, auto_edit, default',
     );
@@ -1290,10 +1301,12 @@ describe('loadCliConfig extensions', () => {
     {
       config: { name: 'ext1', version: '1.0.0' },
       contextFiles: ['/path/to/ext1.md'],
+      path: '/path/to/ext1',
     },
     {
       config: { name: 'ext2', version: '1.0.0' },
       contextFiles: ['/path/to/ext2.md'],
+      path: '/path/to/ext2',
     },
   ];
 
@@ -1894,7 +1907,7 @@ describe('loadCliConfig trustedFolder', () => {
     description,
   } of testCases) {
     it(`should be correct for: ${description}`, async () => {
-      (isWorkspaceTrusted as vi.Mock).mockImplementation(
+      (isWorkspaceTrusted as Mock).mockImplementation(
         (settings: Settings) => {
           const featureIsEnabled =
             (settings.folderTrustFeature ?? false) &&

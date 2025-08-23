@@ -25,7 +25,7 @@ import { GeminiClient } from '@google/gemini-cli-core';
 
 import * as fsPromises from 'fs/promises';
 import { chatCommand } from './chatCommand.js';
-import { Stats } from 'fs';
+import { Dirent, Stats } from 'fs';
 import { HistoryItemWithoutId } from '../types.js';
 
 vi.mock('fs/promises', () => ({
@@ -156,7 +156,7 @@ describe('chatCommand', () => {
         toISOString: () => 'an-invalid-date-string',
       } as Date;
 
-      mockFs.readdir.mockResolvedValue(fakeFiles);
+      mockFs.readdir.mockResolvedValue(fakeFiles as unknown as Array<Dirent<Buffer<ArrayBufferLike>>>);
       mockFs.stat.mockResolvedValue({ mtime: badDate } as Stats);
 
       const result = (await listCommand?.action?.(

@@ -20,22 +20,34 @@ describe('mcp command', () => {
   it('should have exactly one option (help flag)', () => {
     // Test to ensure that the global 'gemini' flags are not added to the mcp command
     const yargsInstance = yargs();
-    const builtYargs = mcpCommand.builder(yargsInstance);
-    const options = builtYargs.getOptions();
-
-    // Should have exactly 1 option (help flag)
-    expect(Object.keys(options.key).length).toBe(1);
-    expect(options.key).toHaveProperty('help');
+    
+    // Check if builder is a function before calling it
+    if (typeof mcpCommand.builder === 'function') {
+      const builtYargs = mcpCommand.builder(yargsInstance) as Argv;
+      
+      // Access the internal options to check what's been configured
+      const internalOptions = (builtYargs as unknown as { getOptions: () => Record<string, unknown> }).getOptions();
+      
+      // Should have exactly 1 option (help flag)
+      expect(Object.keys(internalOptions).length).toBe(1);
+      expect(internalOptions).toHaveProperty('help');
+    } else {
+      // If builder is not a function, skip this test
+      expect.fail('Builder should be a function');
+    }
   });
 
   it('should register add, remove, and list subcommands', () => {
     const mockYargs = {
       command: vi.fn().mockReturnThis(),
       demandCommand: vi.fn().mockReturnThis(),
-      version: vi.fn().mockReturnThis(),
+      version: vi.fn().mockReturnThis(),  
     };
 
-    mcpCommand.builder(mockYargs as unknown as Argv);
+    // Check if builder is a function before calling it
+    if (typeof mcpCommand.builder === 'function') {
+      mcpCommand.builder(mockYargs as unknown as Argv);
+    }
 
     expect(mockYargs.command).toHaveBeenCalledTimes(3);
 

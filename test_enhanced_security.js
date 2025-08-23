@@ -10,10 +10,10 @@
  * Test script to verify the enhanced security system with YOLO mode safety controls
  */
 
-console.log('🛡️  Testing Enhanced Security System with YOLO Mode Safety Controls\n');
-
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable no-undef */
+
+console.log('🛡️  Testing Enhanced Security System with YOLO Mode Safety Controls\n');
 
 try {
   // Mock config for testing

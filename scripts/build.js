@@ -42,8 +42,8 @@ try {
     cwd: root,
   });
   if (
-    process.env.BUILD_SANDBOX === '1' ||
-    process.env.BUILD_SANDBOX === 'true'
+    process.env['BUILD_SANDBOX'] === '1' ||
+    process.env['BUILD_SANDBOX'] === 'true'
   ) {
     execSync('node scripts/build_sandbox.js -s', {
       stdio: 'inherit',

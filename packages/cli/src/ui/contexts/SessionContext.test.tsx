@@ -60,8 +60,9 @@ describe('SessionStatsContext', () => {
       </SessionStatsProvider>,
     );
 
-    const newMetrics: SessionMetrics = {
-      models: {
+      const newMetrics: SessionMetrics = {
+    files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
+    models: {
         'gemini-pro': {
           api: {
             totalRequests: 1,
@@ -87,6 +88,7 @@ describe('SessionStatsContext', () => {
           accept: 1,
           reject: 0,
           modify: 0,
+          auto_accept: 0,
         },
         byName: {
           'test-tool': {
@@ -98,6 +100,7 @@ describe('SessionStatsContext', () => {
               accept: 1,
               reject: 0,
               modify: 0,
+              auto_accept: 0,
             },
           },
         },

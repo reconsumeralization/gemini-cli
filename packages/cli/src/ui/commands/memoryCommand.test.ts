@@ -15,6 +15,7 @@ import {
   loadServerHierarchicalMemory,
   type FileDiscoveryService,
 } from '@google/gemini-cli-core';
+import { type Config } from '../../config/config.js';
 
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
   const original =
@@ -173,12 +174,12 @@ describe('memoryCommand', () => {
 
       mockContext = createMockCommandContext({
         services: {
-          config: Promise.resolve(mockConfig),
+          config: mockConfig as unknown as Config,
           settings: {
             merged: {
               memoryDiscoveryMaxDirs: 1000,
             },
-          } as LoadedSettings,
+          } as unknown as  LoadedSettings,
         },
       });
       mockLoadServerHierarchicalMemory.mockClear();

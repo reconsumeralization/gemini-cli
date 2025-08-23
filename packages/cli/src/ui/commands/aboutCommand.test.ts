@@ -12,6 +12,7 @@ import * as versionUtils from '../../utils/version.js';
 import { MessageType } from '../types.js';
 
 import type { IdeClient } from '@google/gemini-cli-core';
+import { AuthType } from '@google/gemini-cli-core/src/core/contentGenerator.js';
 
 vi.mock('../../utils/version.js', () => ({
   getCliVersion: vi.fn(),
@@ -133,7 +134,8 @@ describe('aboutCommand', () => {
 
   it('should not show ide client when it is not detected', async () => {
     // Change to oauth type that doesn't use GCP project
-    mockContext.services.settings.merged.selectedAuthType = 'oauth';
+    mockContext.services.settings.merged.selectedAuthType =
+      AuthType.LOGIN_WITH_GOOGLE_GCA;
 
     vi.spyOn(mockContext.services.config!, 'getIdeClient').mockReturnValue({
       getDetectedIdeDisplayName: vi.fn().mockReturnValue(undefined),
@@ -153,7 +155,7 @@ describe('aboutCommand', () => {
         osVersion: 'test-os',
         sandboxEnv: 'no sandbox',
         modelVersion: 'test-model',
-        selectedAuthType: 'oauth',
+        selectedAuthType: 'oauth-gcp',
         gcpProject: '',
         ideClient: '',
       }),

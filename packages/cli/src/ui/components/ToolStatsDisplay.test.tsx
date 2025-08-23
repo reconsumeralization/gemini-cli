@@ -28,6 +28,7 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
       metrics,
       lastPromptTokenCount: 0,
       promptCount: 5,
+      sessionId: 'test-session-id',
     },
 
     getPromptCount: () => 5,
@@ -41,12 +42,13 @@ describe('<ToolStatsDisplay />', () => {
   it('should render "no tool calls" message when there are no active tools', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 0,
         totalSuccess: 0,
         totalFail: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
     });
@@ -60,19 +62,20 @@ describe('<ToolStatsDisplay />', () => {
   it('should display stats for a single tool correctly', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 1,
         totalSuccess: 1,
         totalFail: 0,
         totalDurationMs: 100,
-        totalDecisions: { accept: 1, reject: 0, modify: 0 },
+        totalDecisions: { accept: 1, reject: 0, modify: 0, auto_accept: 0 },
         byName: {
           'test-tool': {
             count: 1,
             success: 1,
             fail: 0,
             durationMs: 100,
-            decisions: { accept: 1, reject: 0, modify: 0 },
+            decisions: { accept: 1, reject: 0, modify: 0, auto_accept: 0 },
           },
         },
       },
@@ -86,26 +89,27 @@ describe('<ToolStatsDisplay />', () => {
   it('should display stats for multiple tools correctly', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 3,
         totalSuccess: 2,
         totalFail: 1,
         totalDurationMs: 300,
-        totalDecisions: { accept: 1, reject: 1, modify: 1 },
+        totalDecisions: { accept: 1, reject: 1, modify: 1, auto_accept: 0 },
         byName: {
           'tool-a': {
             count: 2,
             success: 1,
             fail: 1,
             durationMs: 200,
-            decisions: { accept: 1, reject: 1, modify: 0 },
+            decisions: { accept: 1, reject: 1, modify: 0, auto_accept: 0 },
           },
           'tool-b': {
             count: 1,
             success: 1,
             fail: 0,
             durationMs: 100,
-            decisions: { accept: 0, reject: 0, modify: 1 },
+            decisions: { accept: 0, reject: 0, modify: 1, auto_accept: 0 },
           },
         },
       },
@@ -120,6 +124,7 @@ describe('<ToolStatsDisplay />', () => {
   it('should handle large values without wrapping or overlapping', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 999999999,
         totalSuccess: 888888888,
@@ -129,6 +134,7 @@ describe('<ToolStatsDisplay />', () => {
           accept: 123456789,
           reject: 98765432,
           modify: 12345,
+          auto_accept: 0,
         },
         byName: {
           'long-named-tool-for-testing-wrapping-and-such': {
@@ -140,6 +146,7 @@ describe('<ToolStatsDisplay />', () => {
               accept: 123456789,
               reject: 98765432,
               modify: 12345,
+              auto_accept: 0,
             },
           },
         },
@@ -152,19 +159,20 @@ describe('<ToolStatsDisplay />', () => {
   it('should handle zero decisions gracefully', () => {
     const { lastFrame } = renderWithMockedStats({
       models: {},
+      files: { totalLinesAdded: 0, totalLinesRemoved: 0 },
       tools: {
         totalCalls: 1,
         totalSuccess: 1,
         totalFail: 0,
         totalDurationMs: 100,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {
           'test-tool': {
             count: 1,
             success: 1,
             fail: 0,
             durationMs: 100,
-            decisions: { accept: 0, reject: 0, modify: 0 },
+            decisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
           },
         },
       },

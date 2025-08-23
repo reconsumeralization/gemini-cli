@@ -29,9 +29,11 @@ import { EventEmitter } from 'events';
 import { updateEventEmitter } from '../utils/updateEventEmitter.js';
 import * as auth from '../config/auth.js';
 import * as useTerminalSize from './hooks/useTerminalSize.js';
+import type { PartListUnion } from '@google/genai';
 
 // Define a more complete mock server config based on actual Config
 interface MockServerConfig {
+  isTrustedFolder: Mock<() => boolean | undefined >;
   apiKey: string;
   model: string;
   sandbox?: SandboxConfig;
@@ -88,6 +90,7 @@ interface MockServerConfig {
   getUserTier: Mock<() => Promise<string | undefined>>;
   getIdeClient: Mock<() => { getCurrentIde: Mock<() => string | undefined> }>;
   getScreenReader: Mock<() => boolean>;
+  getWorkspaceContext: Mock<() => { getDirectories: Mock<() => string[]> }>;
 }
 
 // Mock @google/gemini-cli-core and its Config class
@@ -196,6 +199,7 @@ vi.mock('./hooks/useGeminiStream', () => ({
     initError: null,
     pendingHistoryItems: [],
     thought: null,
+    cancelOngoingRequest: vi.fn(),
   })),
 }));
 
@@ -215,6 +219,7 @@ vi.mock('./hooks/useFolderTrust', () => ({
     isFolderTrustDialogOpen: false,
     handleFolderTrustSelect: vi.fn(),
     isRestarting: false,
+    isTrusted: false,
   })),
 }));
 
@@ -357,13 +362,13 @@ describe('App UI', () => {
     beforeEach(async () => {
       const { spawn } = await import('node:child_process');
       spawnEmitter = new EventEmitter();
-      spawnEmitter.stdout = new EventEmitter();
-      spawnEmitter.stderr = new EventEmitter();
-      (spawn as vi.Mock).mockReturnValue(spawnEmitter);
+      (spawnEmitter as any).stdout = new EventEmitter(); // eslint-disable-line @typescript-eslint/no-explicit-any
+      (spawnEmitter as any).stderr = new EventEmitter(); // eslint-disable-line @typescript-eslint/no-explicit-any
+      (spawn as Mock).mockReturnValue(spawnEmitter);
     });
 
     afterEach(() => {
-      delete process.env.GEMINI_CLI_DISABLE_AUTOUPDATER;
+      delete process.env['GEMINI_CLI_DISABLE_AUTOUPDATER'];
     });
 
     it('should not start the update process when running from git', async () => {
@@ -373,6 +378,7 @@ describe('App UI', () => {
           name: '@google/gemini-cli',
           latest: '1.1.0',
           current: '1.0.0',
+          type: 'latest',
         },
         message: 'Gemini CLI update available!',
       };
@@ -400,6 +406,7 @@ describe('App UI', () => {
           name: '@google/gemini-cli',
           latest: '1.1.0',
           current: '1.0.0',
+          type: 'latest',
         },
         message: 'Update available',
       };
@@ -430,6 +437,7 @@ describe('App UI', () => {
           name: '@google/gemini-cli',
           latest: '1.1.0',
           current: '1.0.0',
+          type: 'latest'
         },
         message: 'Update available',
       };
@@ -460,6 +468,7 @@ describe('App UI', () => {
           name: '@google/gemini-cli',
           latest: '1.1.0',
           current: '1.0.0',
+          type: 'latest',
         },
         message: 'Update available',
       };
@@ -487,12 +496,13 @@ describe('App UI', () => {
 
     it('should not auto-update if GEMINI_CLI_DISABLE_AUTOUPDATER is true', async () => {
       mockedIsGitRepository.mockResolvedValue(false);
-      process.env.GEMINI_CLI_DISABLE_AUTOUPDATER = 'true';
+      process.env['GEMINI_CLI_DISABLE_AUTOUPDATER'] = 'true';
       const info: UpdateObject = {
         update: {
           name: '@google/gemini-cli',
           latest: '1.1.0',
           current: '1.0.0',
+          type: 'latest',
         },
         message: 'Update available',
       };
@@ -944,7 +954,7 @@ describe('App UI', () => {
     let originalNoColor: string | undefined;
 
     beforeEach(() => {
-      originalNoColor = process.env.NO_COLOR;
+      originalNoColor = process.env['NO_COLOR'];
       // Ensure no theme is set for these tests
       mockSettings = createMockSettings({});
       mockConfig.getDebugMode.mockReturnValue(false);
@@ -952,11 +962,11 @@ describe('App UI', () => {
     });
 
     afterEach(() => {
-      process.env.NO_COLOR = originalNoColor;
+      process.env['NO_COLOR'] = originalNoColor;
     });
 
     it('should display theme dialog if NO_COLOR is not set', async () => {
-      delete process.env.NO_COLOR;
+      delete process.env['NO_COLOR'];
 
       const { lastFrame, unmount } = renderWithProviders(
         <App
@@ -971,7 +981,7 @@ describe('App UI', () => {
     });
 
     it('should display a message if NO_COLOR is set', async () => {
-      process.env.NO_COLOR = 'true';
+      process.env['NO_COLOR'] = 'true';
 
       const { lastFrame, unmount } = renderWithProviders(
         <App
@@ -1006,6 +1016,7 @@ describe('App UI', () => {
       initError: null,
       pendingHistoryItems: [],
       thought: null,
+      cancelOngoingRequest: vi.fn(),
     });
 
     const { lastFrame, unmount } = renderWithProviders(
@@ -1031,6 +1042,7 @@ describe('App UI', () => {
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn(),
       });
 
       mockConfig.getGeminiClient.mockReturnValue({
@@ -1164,15 +1176,15 @@ describe('App UI', () => {
     let originalNoColor: string | undefined;
 
     beforeEach(() => {
-      originalNoColor = process.env.NO_COLOR;
+      originalNoColor = process.env['NO_COLOR'];
     });
 
     afterEach(() => {
-      process.env.NO_COLOR = originalNoColor;
+      process.env['NO_COLOR'] = originalNoColor;
     });
 
     it('should render without errors when NO_COLOR is set', async () => {
-      process.env.NO_COLOR = 'true';
+      process.env['NO_COLOR'] = 'true';
 
       const { lastFrame, unmount } = renderWithProviders(
         <App
@@ -1194,6 +1206,8 @@ describe('App UI', () => {
       vi.mocked(useFolderTrust).mockReturnValue({
         isFolderTrustDialogOpen: true,
         handleFolderTrustSelect: vi.fn(),
+        isTrusted: undefined,
+        isRestarting: false
       });
 
       const { lastFrame, unmount } = renderWithProviders(
@@ -1213,6 +1227,8 @@ describe('App UI', () => {
       vi.mocked(useFolderTrust).mockReturnValue({
         isFolderTrustDialogOpen: true,
         handleFolderTrustSelect: vi.fn(),
+        isTrusted: undefined,
+        isRestarting: false
       });
       mockConfig.isTrustedFolder.mockReturnValue(false);
 
@@ -1233,6 +1249,8 @@ describe('App UI', () => {
       vi.mocked(useFolderTrust).mockReturnValue({
         isFolderTrustDialogOpen: false,
         handleFolderTrustSelect: vi.fn(),
+        isTrusted: undefined,
+        isRestarting: false
       });
       mockConfig.isTrustedFolder.mockReturnValue(false);
 
@@ -1250,7 +1268,7 @@ describe('App UI', () => {
   });
 
   describe('Message Queuing', () => {
-    let mockSubmitQuery: typeof vi.fn;
+    let mockSubmitQuery: Mock<(query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>>;
 
     beforeEach(() => {
       mockSubmitQuery = vi.fn();
@@ -1264,10 +1282,11 @@ describe('App UI', () => {
     it('should queue messages when handleFinalSubmit is called during streaming', () => {
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Responding,
-        submitQuery: mockSubmitQuery,
+        submitQuery: mockSubmitQuery as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { unmount } = renderWithProviders(
@@ -1288,11 +1307,12 @@ describe('App UI', () => {
 
       // Start with Responding state
       vi.mocked(useGeminiStream).mockReturnValue({
-        streamingState: StreamingState.Responding,
-        submitQuery: mockSubmitQueryFn,
-        initError: null,
-        pendingHistoryItems: [],
-        thought: null,
+          streamingState: StreamingState.Responding,
+          submitQuery: mockSubmitQueryFn as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
+          initError: null,
+          pendingHistoryItems: [],
+          thought: null,
+          cancelOngoingRequest: vi.fn()
       });
 
       const { unmount, rerender } = renderWithProviders(
@@ -1307,10 +1327,11 @@ describe('App UI', () => {
       // Simulate the hook returning Idle state (streaming completed)
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Idle,
-        submitQuery: mockSubmitQueryFn,
+        submitQuery: mockSubmitQueryFn as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       // Rerender to trigger the useEffect with new state
@@ -1336,10 +1357,11 @@ describe('App UI', () => {
 
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Responding,
-        submitQuery: mockSubmitQuery,
+        submitQuery: mockSubmitQuery as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
-        thought: 'Processing...',
+        thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { unmount, lastFrame } = renderWithProviders(
@@ -1363,10 +1385,11 @@ describe('App UI', () => {
       // Start with idle to allow message queue to process
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Idle,
-        submitQuery: mockSubmitQueryFn,
+        submitQuery: mockSubmitQueryFn as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { unmount, lastFrame } = renderWithProviders(
@@ -1392,10 +1415,11 @@ describe('App UI', () => {
 
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Idle,
-        submitQuery: mockSubmitQuery,
+        submitQuery: mockSubmitQuery as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { unmount } = renderWithProviders(
@@ -1420,10 +1444,11 @@ describe('App UI', () => {
 
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Idle,
-        submitQuery: mockSubmitQueryFn,
+        submitQuery: mockSubmitQueryFn as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
         thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { unmount, lastFrame } = renderWithProviders(
@@ -1448,10 +1473,11 @@ describe('App UI', () => {
 
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Responding,
-        submitQuery: mockSubmitQuery,
+        submitQuery: mockSubmitQuery as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void>,
         initError: null,
         pendingHistoryItems: [],
-        thought: 'Processing...',
+        thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { lastFrame, unmount } = renderWithProviders(
@@ -1479,10 +1505,11 @@ describe('App UI', () => {
 
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Responding,
-        submitQuery: mockSubmitQuery,
+          submitQuery: mockSubmitQuery as unknown as (query: PartListUnion, options?: { isContinuation: boolean; }, prompt_id?: string) => Promise<void> ,
         initError: null,
         pendingHistoryItems: [],
-        thought: 'Processing...',
+        thought: null,
+        cancelOngoingRequest: vi.fn()
       });
 
       const { lastFrame, unmount } = renderWithProviders(

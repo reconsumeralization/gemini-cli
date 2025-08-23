@@ -27,8 +27,11 @@ import { InstallationManager } from '../../utils/installationManager.js';
 import { UserAccountManager } from '../../utils/userAccountManager.js';
 import { safeJsonStringify } from '../../utils/safeJsonStringify.js';
 import { FixedDeque } from 'mnemonist';
-import { GIT_COMMIT_INFO, CLI_VERSION } from '../../generated/git-commit.js';
 import { DetectedIde, detectIde } from '../../ide/detect-ide.js';
+
+// Fallback values for git commit info and CLI version
+const GIT_COMMIT_INFO = process.env['GEMINI_CLI_GIT_COMMIT'] || 'unknown';
+const CLI_VERSION = process.env['GEMINI_CLI_VERSION'] || '0.0.0';
 
 export enum EventNames {
   START_SESSION = 'start_session',

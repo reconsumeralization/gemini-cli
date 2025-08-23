@@ -10,6 +10,8 @@
  * Interactive CLI for managing Gemini CLI security settings
  */
 
+/* global console, process */
+
 console.log('🔒 GEMINI CLI SECURITY MANAGEMENT');
 console.log('═════════════════════════════════════════════════════════════\n');
 
@@ -30,7 +32,6 @@ try {
     showSecurityInfo,
     showSecurityTutorial,
     getSecurityProfiles,
-    getCurrentSecurityProfile,
     isCommandAllowed
   } = require('./packages/core/src/utils/shell-utils.ts');
 
@@ -48,7 +49,7 @@ try {
       showSecurityInfo();
       break;
 
-    case 'profiles':
+    case 'profiles': {
       console.log('🗂️  Available Security Profiles:');
       const profiles = getSecurityProfiles();
       Object.entries(profiles).forEach(([key, profile]) => {
@@ -61,9 +62,10 @@ try {
         console.log(`   • Education: ${profile.educationMode ? 'Yes' : 'No'}`);
       });
       break;
+    }
 
-    case 'set':
-      const profileName = args[1];
+    case 'set': {
+        const profileName = args[1];
       if (!profileName) {
         console.log('❌ Please specify a profile name.');
         console.log('Available profiles: beginner, standard, advanced, developer');
@@ -78,8 +80,9 @@ try {
         process.exit(1);
       }
       break;
+    }
 
-    case 'test':
+    case 'test': {
       const testCommand = args.slice(1).join(' ');
       if (!testCommand) {
         console.log('❌ Please provide a command to test.');
@@ -107,12 +110,12 @@ try {
 
       console.log(`🏷️  Risk Level: ${result.risk?.toUpperCase() || 'UNKNOWN'}`);
       break;
-
+    }
     case 'tutorial':
       showSecurityTutorial();
       break;
-
-    case 'logs':
+    
+    case 'logs': {
       const os = require('os');
       const path = require('path');
       const fs = require('fs');
@@ -141,7 +144,7 @@ try {
         console.log('📝 No security logs found yet. They will be created when commands are executed.');
       }
       break;
-
+    }
     default:
       console.log(`❌ Unknown command: ${command}`);
       showHelp();
