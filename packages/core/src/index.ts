@@ -46,6 +46,7 @@ export * from './utils/filesearch/fileSearch.js';
 export * from './utils/errorParsing.js';
 export * from './utils/workspaceContext.js';
 
+
 // Export services
 export * from './services/fileDiscoveryService.js';
 export * from './services/gitService.js';
