@@ -12,7 +12,7 @@ import {
 } from 'google-auth-library';
 import * as http from 'http';
 import * as url from 'node:url';
-import { randomBytes } from 'node:crypto';
+import * as crypto from 'node:crypto';
 import * as net from 'net';
 import open from 'open';
 import * as path from 'node:path';
@@ -197,7 +197,7 @@ export async function getOauthClient(
 async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
   const redirectUri = 'https://codeassist.google.com/authcode';
   const codeVerifier = await client.generateCodeVerifierAsync();
-  const state = randomBytes(32).toString('hex');
+  const state = crypto.randomBytes(32).toString('hex');
   const authUrl: string = client.generateAuthUrl({
     redirect_uri: redirectUri,
     access_type: 'offline',
@@ -249,7 +249,7 @@ async function authWithWeb(client: OAuth2Client): Promise<OauthWebLogin> {
   // type 'Desktop app' or 'Web application' (when using loopback flow) to mitigate
   // authorization code interception attacks.
   const redirectUri = `http://localhost:${port}/oauth2callback`;
-  const state = randomBytes(32).toString('hex');
+  const state = crypto.randomBytes(32).toString('hex');
   const authUrl = client.generateAuthUrl({
     redirect_uri: redirectUri,
     access_type: 'offline',
