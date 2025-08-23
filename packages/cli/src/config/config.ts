@@ -7,10 +7,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'node:os';
-import yargs from 'yargs/yargs';
+import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import process from 'node:process';
+import * as process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
+import { debugCommand } from '../commands/debug.js';
 import {
   Config,
   loadServerHierarchicalMemory,
@@ -253,6 +254,7 @@ export async function parseArguments(): Promise<CliArgs> {
     )
     // Register MCP subcommands
     .command(mcpCommand)
+    .command(debugCommand)
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()

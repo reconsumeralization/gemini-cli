@@ -5,7 +5,7 @@
  */
 
 import { SandboxConfig } from '@google/gemini-cli-core';
-import commandExists from 'command-exists';
+import * as commandExists from 'command-exists';
 import * as os from 'node:os';
 import { getPackageJson } from '../utils/package.js';
 import { Settings } from './settings.js';

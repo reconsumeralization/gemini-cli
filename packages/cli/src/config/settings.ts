@@ -12,13 +12,12 @@ import {
   GEMINI_CONFIG_DIR as GEMINI_DIR,
   getErrorMessage,
   Storage,
-} from '@google/gemini-cli-core';
-import stripJsonComments from 'strip-json-comments';
+ MCPServerConfig } from '@google/gemini-cli-core';
+import * as stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
 import { Settings, MemoryImportFormat } from './settingsSchema.js';
-import { MCPServerConfig } from '@google/gemini-cli-core';
 
 export type { Settings, MemoryImportFormat };
 

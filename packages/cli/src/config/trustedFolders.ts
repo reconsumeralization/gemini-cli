@@ -9,7 +9,7 @@ import * as path from 'path';
 import { homedir } from 'os';
 import { getErrorMessage, isWithinRoot } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
-import stripJsonComments from 'strip-json-comments';
+import * as stripJsonComments from 'strip-json-comments';
 
 export const TRUSTED_FOLDERS_FILENAME = 'trustedFolders.json';
 export const SETTINGS_DIRECTORY_NAME = '.gemini';
