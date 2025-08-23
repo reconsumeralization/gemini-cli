@@ -670,7 +670,6 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           version: '1.0.0',
         },
         contextFiles: ['/path/to/ext1/GEMINI.md'],
-        path: '/path/to/ext1',
       },
       {
         path: '/path/to/ext2',
@@ -679,7 +678,6 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           version: '1.0.0',
         },
         contextFiles: [],
-        path: '/path/to/ext2',
       },
       {
         path: '/path/to/ext3',
@@ -691,7 +689,6 @@ describe('Hierarchical Memory Loading (config.ts) - Placeholder Suite', () => {
           '/path/to/ext3/context1.md',
           '/path/to/ext3/context2.md',
         ],
-        path: '/path/to/ext3',
       },
     ];
     const argv = await parseArguments();
@@ -760,7 +757,6 @@ describe('mergeMcpServers', () => {
           },
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
     ];
     const originalSettings = JSON.parse(JSON.stringify(settings));
@@ -794,7 +790,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool3', 'tool4'],
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
       {
         path: '/path/to/ext2',
@@ -804,7 +799,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool5'],
         },
         contextFiles: [],
-        path: '/path/to/ext2',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -832,7 +826,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2', 'tool3'],
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -860,7 +853,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2', 'tool3'],
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
       {
         path: '/path/to/ext2',
@@ -870,7 +862,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool3', 'tool4'],
         },
         contextFiles: [],
-        path: '/path/to/ext2',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -945,7 +936,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool1', 'tool2'],
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
     ];
     process.argv = ['node', 'script.js'];
@@ -973,7 +963,6 @@ describe('mergeExcludeTools', () => {
           excludeTools: ['tool2'],
         },
         contextFiles: [],
-        path: '/path/to/ext1',
       },
     ];
     const originalSettings = JSON.parse(JSON.stringify(settings));
@@ -1342,13 +1331,11 @@ describe('loadCliConfig extensions', () => {
       path: '/path/to/ext1',
       config: { name: 'ext1', version: '1.0.0' },
       contextFiles: ['/path/to/ext1.md'],
-      path: '/path/to/ext1',
     },
     {
       path: '/path/to/ext2',
       config: { name: 'ext2', version: '1.0.0' },
       contextFiles: ['/path/to/ext2.md'],
-      path: '/path/to/ext2',
     },
   ];
 
