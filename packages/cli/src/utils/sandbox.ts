@@ -79,8 +79,68 @@ export async function start_sandbox(
   const proxyProcess = startSandboxProxyIfConfigured();
 
   try {
-    // 2. Build the environment securely, including proxy variables if needed.
-    const sandboxEnv = helpers.buildSafeEnv(process.env);
+
+    if (config.command === 'sandbox-exec') {
+      // disallow BUILD_SANDBOX
+      if (process.env['BUILD_SANDBOX']) {
+        console.error('ERROR: cannot BUILD_SANDBOX when using macOS Seatbelt');
+        process.exit(1);
+      }
+
+      const profile = (process.env['SEATBELT_PROFILE'] ??= 'permissive-open');
+      let profileFile = fileURLToPath(
+        new URL(`sandbox-macos-${profile}.sb`, import.meta.url),
+      );
+      // if profile name is not recognized, then look for file under project settings directory
+      if (!BUILTIN_SEATBELT_PROFILES.includes(profile)) {
+        profileFile = path.join(
+          SETTINGS_DIRECTORY_NAME,
+          `sandbox-macos-${profile}.sb`,
+        );
+      }
+      if (!fs.existsSync(profileFile)) {
+        console.error(
+          `ERROR: missing macos seatbelt profile file '${profileFile}'`,
+        );
+        process.exit(1);
+      }
+      // Log on STDERR so it doesn't clutter the output on STDOUT
+      console.error(`using macos seatbelt (profile: ${profile}) ...`);
+      // if DEBUG is set, convert to --inspect-brk in NODE_OPTIONS
+      const nodeOptions = [
+        ...(process.env['DEBUG'] ? ['--inspect-brk'] : []),
+        ...nodeArgs,
+      ].join(' ');
+
+      const args = [
+        '-D',
+        `TARGET_DIR=${fs.realpathSync(process.cwd())}`,
+        '-D',
+        `TMP_DIR=${fs.realpathSync(os.tmpdir())}`,
+        '-D',
+        `HOME_DIR=${fs.realpathSync(os.homedir())}`,
+        '-D',
+        `CACHE_DIR=${fs.realpathSync(execSync(`getconf DARWIN_USER_CACHE_DIR`).toString().trim())}`,
+      ];
+
+      // Add included directories from the workspace context
+      // Always add 5 INCLUDE_DIR parameters to ensure .sb files can reference them
+      const MAX_INCLUDE_DIRS = 5;
+      const targetDir = fs.realpathSync(cliConfig?.getTargetDir() || '');
+      const includedDirs: string[] = [];
+
+      if (cliConfig) {
+        const workspaceContext = cliConfig.getWorkspaceContext();
+        const directories = workspaceContext.getDirectories();
+
+        // Filter out TARGET_DIR
+        for (const dir of directories) {
+          const realDir = fs.realpathSync(dir);
+          if (realDir !== targetDir) {
+            includedDirs.push(realDir);
+          }
+        }
+      }
 
     // 3. Delegate to the appropriate sandbox handler based on configuration.
     if (config.command === 'sandbox-exec') {
