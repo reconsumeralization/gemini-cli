@@ -14,6 +14,8 @@
  * command parsing and process spawning to the `sandbox_helpers` module.
  */
 
+import { Config } from '@google/gemini-cli-core';
+
 // Node.js built-in modules
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -32,13 +34,7 @@ interface SandboxConfig {
   command: string;
   image?: string;
 }
-interface Config {
-  getDebugMode(): boolean;
-  getTargetDir(): string;
-  getWorkspaceContext(): {
-    getDirectories(): string[];
-  };
-}
+
 
 // --- Constants from original 'main' branch ---
 const SETTINGS_DIRECTORY_NAME = '.gemini'; // Example name

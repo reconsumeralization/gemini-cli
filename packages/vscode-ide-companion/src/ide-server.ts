@@ -179,7 +179,11 @@ export class IDEServer {
 
         try {
           // Type assertion needed due to Express 5.x compatibility with MCP SDK
-          await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res as unknown as Parameters<typeof transport.handleRequest>[1], req.body);
+          await transport.handleRequest(
+            req as unknown as Parameters<typeof transport.handleRequest>[0], 
+            res as unknown as Parameters<typeof transport.handleRequest>[1], 
+            req.body
+          );
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
@@ -210,7 +214,10 @@ export class IDEServer {
         const transport = transports[sessionId];
         try {
           // Type assertion needed due to Express 5.x compatibility with MCP SDK
-          await transport.handleRequest(req as unknown as Parameters<typeof transport.handleRequest>[0], res as unknown as Parameters<typeof transport.handleRequest>[1]);
+          await transport.handleRequest(
+            req as unknown as Parameters<typeof transport.handleRequest>[0], 
+            res as unknown as Parameters<typeof transport.handleRequest>[1]
+          );
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
