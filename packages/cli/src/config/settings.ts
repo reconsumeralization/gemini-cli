@@ -83,6 +83,29 @@ function mergeSettings(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { folderTrust, ...safeWorkspaceWithoutFolderTrust } = safeWorkspace;
 
+  // Check if user wants to ignore system MCP settings
+  const ignoreMCPSystemSettings = 
+    user.ignoreMCPSystemSettings || 
+    safeWorkspace.ignoreMCPSystemSettings || 
+    false;
+
+  // Smart MCP server merging based on user preference
+  let mergedMcpServers: Record<string, any>;
+  if (ignoreMCPSystemSettings) {
+    // User wants to ignore system MCP settings - only merge user and workspace
+    mergedMcpServers = {
+      ...(user.mcpServers || {}),
+      ...(safeWorkspace.mcpServers || {}),
+    };
+  } else {
+    // Default behavior - system settings override everything
+    mergedMcpServers = {
+      ...(user.mcpServers || {}),
+      ...(safeWorkspace.mcpServers || {}),
+      ...(system.mcpServers || {}),
+    };
+  }
+
   return {
     ...user,
     ...safeWorkspaceWithoutFolderTrust,
@@ -92,11 +115,7 @@ function mergeSettings(
       ...(safeWorkspace.customThemes || {}),
       ...(system.customThemes || {}),
     },
-    mcpServers: {
-      ...(user.mcpServers || {}),
-      ...(safeWorkspace.mcpServers || {}),
-      ...(system.mcpServers || {}),
-    },
+    mcpServers: mergedMcpServers,
     includeDirectories: [
       ...(system.includeDirectories || []),
       ...(user.includeDirectories || []),

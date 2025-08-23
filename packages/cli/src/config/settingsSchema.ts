@@ -398,6 +398,15 @@ export const SETTINGS_SCHEMA = {
     description: 'A whitelist of MCP servers to allow.',
     showInDialog: false,
   },
+  ignoreMCPSystemSettings: {
+    type: 'boolean',
+    label: 'Ignore System MCP Settings',
+    category: 'Advanced',
+    requiresRestart: true,
+    default: false as boolean,
+    description: 'Ignore system-level MCP server configurations and use only user/workspace settings.',
+    showInDialog: false,
+  },
   excludeMCPServers: {
     type: 'array',
     label: 'Exclude MCP Servers',
