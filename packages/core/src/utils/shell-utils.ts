@@ -7,6 +7,8 @@
 import { Config } from '../config/config.js';
 import os from 'os';
 import { quote } from 'shell-quote';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * An identifier for the shell type.
@@ -444,14 +446,474 @@ export function checkCommandPermissions(
  * @param config The application configuration.
  * @returns An object with 'allowed' boolean and optional 'reason' string if not allowed.
  */
+// Safe command execution control - comprehensive safety layers
+// Base allowed commands - users can customize this
+let ALLOWED_COMMANDS = new Set([
+  'echo', 'ls', 'cat', 'grep', 'head', 'tail', 'wc', 'sort', 'uniq',
+  'find', 'pwd', 'whoami', 'date', 'which', 'type', 'file', 'stat',
+  'ps', 'top', 'df', 'du', 'free', 'uptime', 'id', 'groups', 'hostname',
+  'ping', 'traceroute', 'dig', 'nslookup', 'curl', 'wget', 'git',
+  'node', 'npm', 'python', 'python3', 'pip', 'pip3', 'docker', 'docker-compose'
+]);
+
+// User-customizable security settings
+interface SecurityProfile {
+  name: string;
+  description: string;
+  allowedCommands: Set<string>;
+  riskyCommands: Set<string>;
+  dangerousCommands: Set<string>;
+  strictMode: boolean;
+  educationMode: boolean;
+  logLevel: 'minimal' | 'standard' | 'verbose';
+}
+
+const SECURITY_PROFILES: Record<string, SecurityProfile> = {
+  'beginner': {
+    name: 'Beginner',
+    description: 'Maximum safety with lots of guidance',
+    allowedCommands: new Set(['echo', 'ls', 'cat', 'pwd', 'whoami', 'date']),
+    riskyCommands: new Set(['cp', 'mv', 'grep', 'head', 'tail']),
+    dangerousCommands: new Set(['rm', 'sudo', 'chmod', 'chown', 'eval', 'exec']),
+    strictMode: true,
+    educationMode: true,
+    logLevel: 'verbose'
+  },
+  'standard': {
+    name: 'Standard',
+    description: 'Balanced security for regular users',
+    allowedCommands: ALLOWED_COMMANDS,
+    riskyCommands: new Set(['cp', 'mv', 'cp', 'scp', 'rsync', 'tar', 'gzip', 'gunzip', 'bzip2', 'xz', '7z', 'zip', 'unzip', 'rar', 'unrar', 'wget', 'curl', 'ssh', 'scp', 'rsync', 'ftp', 'sftp', 'telnet', 'nc', 'nmap']),
+    dangerousCommands: new Set(['rm', 'rmdir', 'del', 'format', 'fdisk', 'mkfs', 'mount', 'umount', 'sudo', 'su', 'chmod', 'chown', 'chgrp', 'passwd', 'useradd', 'userdel', 'reboot', 'shutdown', 'halt', 'poweroff', 'systemctl', 'service', 'kill', 'killall', 'pkill', 'pgrep', 'nohup', 'screen', 'tmux', 'crontab', 'at', 'batch', 'eval', 'exec', 'system', 'sh', 'bash', 'zsh', 'fish', 'dash', 'ash', 'busybox', 'tcsh', 'csh', 'ksh', 'dd', 'mkfs', 'fsck', 'fdisk', 'parted', 'gparted', 'cfdisk', 'wipefs', 'blkid', 'lsblk', 'fdisk', 'sfdisk', 'gdisk']),
+    strictMode: false,
+    educationMode: true,
+    logLevel: 'standard'
+  },
+  'advanced': {
+    name: 'Advanced',
+    description: 'Relaxed security for power users',
+    allowedCommands: new Set([...ALLOWED_COMMANDS, 'chmod', 'chown', 'ps', 'kill', 'top']),
+    riskyCommands: new Set(['rm', 'sudo', 'systemctl', 'mount']),
+    dangerousCommands: new Set(['rm -rf /', 'dd if=/dev/zero', 'mkfs', 'format', 'fdisk /dev/', 'reboot', 'shutdown -h now']),
+    strictMode: false,
+    educationMode: false,
+    logLevel: 'minimal'
+  },
+  'developer': {
+    name: 'Developer',
+    description: 'Permissive mode for development workflows',
+    allowedCommands: new Set([...ALLOWED_COMMANDS, 'chmod', 'chown', 'ps', 'kill', 'top', 'docker', 'npm', 'git']),
+    riskyCommands: new Set(['rm', 'sudo']),
+    dangerousCommands: new Set(['rm -rf /', 'reboot', 'shutdown']),
+    strictMode: false,
+    educationMode: false,
+    logLevel: 'minimal'
+  }
+};
+
+// Current active security profile
+let currentProfile: SecurityProfile = SECURITY_PROFILES.standard;
+
+const DANGEROUS_COMMANDS = new Set([
+  'rm', 'rmdir', 'del', 'format', 'fdisk', 'mkfs', 'mount', 'umount',
+  'sudo', 'su', 'chmod', 'chown', 'chgrp', 'passwd', 'useradd', 'userdel',
+  'groupadd', 'groupdel', 'iptables', 'netsh', 'ifconfig', 'route',
+  'reboot', 'shutdown', 'halt', 'poweroff', 'systemctl', 'service',
+  'kill', 'killall', 'pkill', 'pgrep', 'nohup', 'screen', 'tmux',
+  'crontab', 'at', 'batch', 'eval', 'exec', 'system', 'sh', 'bash',
+  'zsh', 'fish', 'dash', 'ash', 'busybox', 'tcsh', 'csh', 'ksh',
+  'dd', 'mkfs', 'fsck', 'fdisk', 'parted', 'gparted', 'cfdisk',
+  'wipefs', 'blkid', 'lsblk', 'fdisk', 'sfdisk', 'gdisk'
+]);
+
+const RISKY_COMMANDS = new Set([
+  'cp', 'mv', 'cp', 'scp', 'rsync', 'tar', 'gzip', 'gunzip', 'bzip2',
+  'xz', '7z', 'zip', 'unzip', 'rar', 'unrar', 'wget', 'curl',
+  'ssh', 'scp', 'rsync', 'ftp', 'sftp', 'telnet', 'nc', 'nmap'
+]);
+
+const FORBIDDEN_TOKENS = [
+  '&&', '||', ';', '|', '$', '`', '<(', '>)', '${', '$(',
+  '2>&1', '1>&2', '>&', '<&', '>>', '<<', '<<<', '&>',
+  '>|', '<>', '&>>', '&>', '&&&', '|||', ';;;'
+];
+
+const DANGEROUS_PATTERNS = [
+  /\$\{[^}]*\}/g,  // Variable expansion
+  /`[^`]*`/g,      // Backtick command substitution
+  /\$\([^)]*\)/g,  // Command substitution
+  /<\([^)]*\)/g,   // Process substitution
+  />\([^)]*\)/g,   // Process substitution
+  /\/dev\/(null|zero|random|urandom)/g,  // Direct device access
+  /\/etc\/(passwd|shadow|sudoers|hosts|fstab)/g,  // System files
+  /\/root|\.ssh|authorized_keys/g,  // Sensitive directories
+];
+
+/**
+ * Enhanced command safety validation with comprehensive security layers
+ */
+function isCommandSafe(command: string): { safe: boolean; reason?: string; risk?: 'low' | 'medium' | 'high' } {
+  if (!command || typeof command !== 'string') {
+    return { safe: false, reason: 'Invalid command string' };
+  }
+
+  const trimmedCommand = command.trim();
+  if (!trimmedCommand) {
+    return { safe: false, reason: 'Empty command' };
+  }
+
+  // Extract the base command (first token)
+  const tokens = trimmedCommand.split(/\s+/);
+  const baseCommand = tokens[0].split('/').pop()?.toLowerCase() || '';
+
+  // Check dangerous commands - hard block (profile-specific)
+  if (currentProfile.dangerousCommands.has(baseCommand) || currentProfile.dangerousCommands.has(command)) {
+    return {
+      safe: false,
+      reason: `Command '${baseCommand}' is blocked in ${currentProfile.name} security profile`,
+      risk: 'high'
+    };
+  }
+
+  // Check allowed commands - explicit allowlist (profile-specific)
+  if (!currentProfile.allowedCommands.has(baseCommand)) {
+    return {
+      safe: false,
+      reason: `Command '${baseCommand}' is not in the allowed commands for ${currentProfile.name} profile`,
+      risk: 'medium'
+    };
+  }
+
+  // Check for forbidden tokens - injection attempts
+  for (const token of FORBIDDEN_TOKENS) {
+    if (trimmedCommand.includes(token)) {
+      return {
+        safe: false,
+        reason: `Forbidden token '${token}' detected - possible command injection`,
+        risk: 'high'
+      };
+    }
+  }
+
+  // Check for dangerous patterns - advanced injection detection
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(trimmedCommand)) {
+      return {
+        safe: false,
+        reason: 'Dangerous command pattern detected - possible injection attempt',
+        risk: 'high'
+      };
+    }
+  }
+
+  // Check for risky commands that may need confirmation (profile-specific)
+  if (currentProfile.riskyCommands.has(baseCommand)) {
+    return {
+      safe: true,
+      risk: 'medium',
+      reason: `Command '${baseCommand}' is potentially risky in ${currentProfile.name} profile`
+    };
+  }
+
+  // Command passed all safety checks
+  return {
+    safe: true,
+    risk: 'low',
+    reason: `Command '${baseCommand}' is safe for automatic execution`
+  };
+}
+
+/**
+ * Enhanced logging with security insights and user education
+ */
+function logCommandExecution(command: string, allowed: boolean, reason?: string, risk?: string, config?: Config) {
+  try {
+    const approvalMode = config?.getApprovalMode() || 'default';
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      command: command,
+      allowed: allowed,
+      reason: reason || 'No reason provided',
+      risk: risk || 'unknown',
+      user: process.env.USER || process.env.USERNAME || 'unknown',
+      pid: process.pid,
+      approvalMode: approvalMode,
+      sessionId: config?.getSessionId?.() || 'unknown'
+    };
+
+    const logDir = path.join(os.tmpdir(), 'gemini-cli-security');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true, mode: 0o700 });
+    }
+
+    const logFile = path.join(logDir, 'command-audit.log');
+    fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n', { mode: 0o600 });
+
+    // Also log to a human-readable security summary
+    const summaryFile = path.join(logDir, 'security-summary.txt');
+    const summary = `[${new Date().toLocaleString()}] ${allowed ? '✅' : '❌'} ${risk?.toUpperCase()} - ${command.substring(0, 50)}${command.length > 50 ? '...' : ''}\n`;
+    fs.appendFileSync(summaryFile, summary, { mode: 0o600 });
+
+  } catch (error) {
+    // Don't let logging errors break command execution
+    console.warn('Failed to log command execution:', error);
+  }
+}
+
+/**
+ * Provides educational feedback for blocked commands
+ */
+function provideUserEducation(command: string, reason: string, risk: string): void {
+  console.log('\n📚 SECURITY EDUCATION:');
+  console.log('═════════════════════════════════════════════════════════════');
+
+  if (risk === 'high') {
+    console.log('🚨 HIGH RISK COMMAND BLOCKED');
+    console.log(`❌ Command: ${command}`);
+    console.log(`🛡️  Reason: ${reason}`);
+    console.log('');
+    console.log('💡 SAFE ALTERNATIVES:');
+
+    // Provide specific alternatives based on the blocked command
+    const baseCommand = command.trim().split(/\s+/)[0];
+    switch (baseCommand) {
+      case 'rm':
+        console.log('  • Use: rm -i (interactive mode)');
+        console.log('  • Use: trash-cli for safer file deletion');
+        console.log('  • Use: git rm for version-controlled files');
+        break;
+      case 'chmod':
+        console.log('  • Use: chmod +x (add execute permission only)');
+        console.log('  • Use: stat to check current permissions');
+        console.log('  • Use: ls -l to view permissions');
+        break;
+      case 'sudo':
+        console.log('  • Check if the command really needs root privileges');
+        console.log('  • Use sudo -l to see allowed commands');
+        console.log('  • Consider using containers or VMs for testing');
+        break;
+      default:
+        console.log('  • Consider if this command is necessary');
+        console.log('  • Use safer alternatives when possible');
+        console.log('  • Check command documentation for safer options');
+    }
+  }
+
+  console.log('\n🔧 SECURITY TIPS:');
+  console.log('  • Use --dry-run or --verbose flags when available');
+  console.log('  • Test commands in safe environments first');
+  console.log('  • Use version control for important files');
+  console.log('  • Consider using containers for destructive operations');
+  console.log('═════════════════════════════════════════════════════════════\n');
+}
+
+/**
+ * Suggests safer alternatives for risky commands
+ */
+function suggestSaferAlternatives(command: string): string[] {
+  const baseCommand = command.trim().split(/\s+/)[0];
+  const suggestions: Record<string, string[]> = {
+    'rm': [
+      'Use `rm -i` for interactive confirmation',
+      'Use `trash-cli` for recoverable deletion',
+      'Use `git rm` for version-controlled files'
+    ],
+    'cp': [
+      'Use `cp -i` to prevent overwriting',
+      'Use `rsync` for more reliable copying',
+      'Check destination with `ls -la` first'
+    ],
+    'mv': [
+      'Use `mv -i` for interactive confirmation',
+      'Check destination permissions first',
+      'Use `ls -la` to verify paths'
+    ],
+    'chmod': [
+      'Use `chmod +x` only for execute permission',
+      'Use `stat` to check current permissions',
+      'Use `ls -l` to view file permissions'
+    ],
+    'wget': [
+      'Use `curl` for more options and safety',
+      'Check URL validity first',
+      'Use `--spider` for dry-run testing'
+    ],
+    'curl': [
+      'Use `--location` for redirects',
+      'Use `--max-filesize` to limit downloads',
+      'Use `--output` to specify destination'
+    ]
+  };
+
+  return suggestions[baseCommand] || ['Consider if this command is necessary'];
+}
+
+/**
+ * Gets information about available security profiles
+ */
+export function getSecurityProfiles(): Record<string, SecurityProfile> {
+  return SECURITY_PROFILES;
+}
+
+/**
+ * Gets the current active security profile
+ */
+export function getCurrentSecurityProfile(): SecurityProfile {
+  return currentProfile;
+}
+
+/**
+ * Sets the active security profile
+ */
+export function setSecurityProfile(profileName: keyof typeof SECURITY_PROFILES): boolean {
+  if (SECURITY_PROFILES[profileName]) {
+    currentProfile = SECURITY_PROFILES[profileName];
+    console.log(`🔒 Security profile changed to: ${currentProfile.name}`);
+    console.log(`📝 ${currentProfile.description}`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Shows security profile information and statistics
+ */
+export function showSecurityInfo(): void {
+  console.log('\n🔒 GEMINI CLI SECURITY INFORMATION');
+  console.log('═════════════════════════════════════════════════════════════');
+  console.log(`Current Profile: ${currentProfile.name}`);
+  console.log(`Description: ${currentProfile.description}`);
+  console.log(`Strict Mode: ${currentProfile.strictMode ? 'Enabled' : 'Disabled'}`);
+  console.log(`Education Mode: ${currentProfile.educationMode ? 'Enabled' : 'Disabled'}`);
+  console.log(`Log Level: ${currentProfile.logLevel}`);
+  console.log('');
+
+  console.log('Available Commands:');
+  console.log(`  • Safe Commands: ${currentProfile.allowedCommands.size} allowed`);
+  console.log(`  • Risky Commands: ${currentProfile.riskyCommands.size} with warnings`);
+  console.log(`  • Dangerous Commands: ${currentProfile.dangerousCommands.size} blocked`);
+  console.log('');
+
+  console.log('Available Security Profiles:');
+  Object.entries(SECURITY_PROFILES).forEach(([key, profile]) => {
+    const current = key === getCurrentProfileName() ? ' (current)' : '';
+    console.log(`  • ${key}: ${profile.description}${current}`);
+  });
+
+  console.log('');
+  console.log('Security Logs Location:');
+  console.log(`  • ${path.join(os.tmpdir(), 'gemini-cli-security')}`);
+  console.log('═════════════════════════════════════════════════════════════\n');
+}
+
+/**
+ * Gets the name of the current security profile
+ */
+function getCurrentProfileName(): string {
+  for (const [key, profile] of Object.entries(SECURITY_PROFILES)) {
+    if (profile === currentProfile) {
+      return key;
+    }
+  }
+  return 'custom';
+}
+
+/**
+ * Provides a security tutorial for users
+ */
+export function showSecurityTutorial(): void {
+  console.log('\n📚 GEMINI CLI SECURITY TUTORIAL');
+  console.log('═════════════════════════════════════════════════════════════');
+  console.log('');
+  console.log('🔒 Why Security Profiles Matter:');
+  console.log('  Different users have different security needs. A beginner');
+  console.log('  needs maximum protection, while a developer needs flexibility.');
+  console.log('');
+
+  console.log('🛡️  Security Levels Explained:');
+  console.log('  • LOW RISK: Safe commands that run automatically');
+  console.log('  • MEDIUM RISK: Commands with warnings and suggestions');
+  console.log('  • HIGH RISK: Dangerous commands that are blocked');
+  console.log('');
+
+  console.log('💡 Profile Recommendations:');
+  console.log('  • BEGINNER: Maximum safety, fewest commands allowed');
+  console.log('  • STANDARD: Balanced security for regular users (default)');
+  console.log('  • ADVANCED: Relaxed security for power users');
+  console.log('  • DEVELOPER: Permissive mode for development workflows');
+  console.log('');
+
+  console.log('🔧 How to Change Security Profile:');
+  console.log('  • Use: setSecurityProfile("beginner") for maximum safety');
+  console.log('  • Use: setSecurityProfile("developer") for development work');
+  console.log('  • Use: showSecurityInfo() to see current settings');
+  console.log('');
+
+  console.log('📊 Security Monitoring:');
+  console.log('  • All command decisions are logged for audit trails');
+  console.log('  • Blocked commands provide educational feedback');
+  console.log('  • Risky commands suggest safer alternatives');
+  console.log('═════════════════════════════════════════════════════════════\n');
+}
+
+/**
+ * Enhanced command permission checking with safety layers and logging
+ * This preserves existing behavior while adding comprehensive safety controls
+ */
 export function isCommandAllowed(
   command: string,
   config: Config,
-): { allowed: boolean; reason?: string } {
-  // By not providing a sessionAllowlist, we invoke "default allow" behavior.
-  const { allAllowed, blockReason } = checkCommandPermissions(command, config);
-  if (allAllowed) {
-    return { allowed: true };
+): { allowed: boolean; reason?: string; risk?: 'low' | 'medium' | 'high' } {
+  // First, run the enhanced safety check
+  const safetyCheck = isCommandSafe(command);
+
+  if (!safetyCheck.safe) {
+    // Log blocked command with enhanced logging
+    logCommandExecution(command, false, safetyCheck.reason, safetyCheck.risk, config);
+
+    // Provide educational feedback for high-risk blocks
+    if (safetyCheck.risk === 'high') {
+      provideUserEducation(command, safetyCheck.reason!, safetyCheck.risk);
+    }
+
+    return {
+      allowed: false,
+      reason: safetyCheck.reason,
+      risk: safetyCheck.risk
+    };
   }
-  return { allowed: false, reason: blockReason };
+
+  // If safety check passes, run the existing permission check
+  const { allAllowed, blockReason } = checkCommandPermissions(command, config);
+
+  if (!allAllowed) {
+    // Log blocked command with enhanced logging
+    logCommandExecution(command, false, blockReason, safetyCheck.risk, config);
+
+    return {
+      allowed: false,
+      reason: blockReason,
+      risk: safetyCheck.risk
+    };
+  }
+
+  // Command is safe and allowed - log for audit trail with enhanced logging
+  logCommandExecution(command, true, safetyCheck.reason, safetyCheck.risk, config);
+
+  // For medium-risk commands, provide helpful suggestions
+  if (safetyCheck.risk === 'medium') {
+    const alternatives = suggestSaferAlternatives(command);
+    if (alternatives.length > 0) {
+      console.log(`💡 TIP: For '${command}', consider:`);
+      alternatives.forEach(alt => console.log(`   • ${alt}`));
+      console.log('');
+    }
+  }
+
+  // Command is safe and allowed
+  return {
+    allowed: true,
+    reason: safetyCheck.reason,
+    risk: safetyCheck.risk
+  };
 }

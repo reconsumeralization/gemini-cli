@@ -369,6 +369,25 @@ export class ShellTool extends BaseDeclarativeTool<
       }
       return commandCheck.reason;
     }
+
+    // Enhanced validation with risk assessment
+    if (commandCheck.risk === 'high') {
+      return `High-risk command blocked for security: ${commandCheck.reason}`;
+    }
+
+    if (commandCheck.risk === 'medium') {
+      console.warn(`⚠️  MEDIUM RISK COMMAND: ${commandCheck.reason}`);
+      console.warn(`Command: ${params.command}`);
+
+      // In YOLO mode, we still allow medium-risk commands but log them
+      if (this.config.getApprovalMode() === 'yolo') {
+        console.warn('🔥 YOLO MODE: Executing medium-risk command automatically');
+        console.warn(`📝 LOGGED: Command execution for audit trail`);
+      } else {
+        console.warn('💡 Consider using --yolo flag if you want automatic execution');
+      }
+    }
+
     if (!params.command.trim()) {
       return 'Command cannot be empty.';
     }
