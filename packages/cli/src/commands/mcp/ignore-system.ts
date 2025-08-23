@@ -13,7 +13,7 @@ interface IgnoreSystemArgs {
   scope?: string;
 }
 
-export const ignoreSystemCommand: CommandModule<{}, IgnoreSystemArgs> = {
+export const ignoreSystemCommand: CommandModule<object, IgnoreSystemArgs> = {
   command: 'ignore-system',
   describe: 'Toggle ignoring system-level MCP server configurations',
   builder: (yargs) =>

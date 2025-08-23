@@ -10,6 +10,7 @@ import { addCommand } from './mcp/add.js';
 import { removeCommand } from './mcp/remove.js';
 import { listCommand } from './mcp/list.js';
 import { ignoreSystemCommand } from './mcp/ignore-system.js';
+import { securityAuditCommand } from './mcp/security-audit.js';
 
 export const mcpCommand: CommandModule = {
   command: 'mcp',
@@ -20,6 +21,7 @@ export const mcpCommand: CommandModule = {
       .command(removeCommand)
       .command(listCommand)
       .command(ignoreSystemCommand)
+      .command(securityAuditCommand)
       .demandCommand(1, 'You need at least one command before continuing.')
       .version(false),
   handler: () => {

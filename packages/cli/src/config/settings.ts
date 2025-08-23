@@ -18,6 +18,7 @@ import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
 import { Settings, MemoryImportFormat } from './settingsSchema.js';
+import { MCPServerConfig } from '@google/gemini-cli-core';
 
 export type { Settings, MemoryImportFormat };
 
@@ -90,7 +91,7 @@ function mergeSettings(
     false;
 
   // Smart MCP server merging based on user preference
-  let mergedMcpServers: Record<string, any>;
+  let mergedMcpServers: Record<string, MCPServerConfig>;
   if (ignoreMCPSystemSettings) {
     // User wants to ignore system MCP settings - only merge user and workspace
     mergedMcpServers = {
