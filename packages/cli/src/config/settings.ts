@@ -13,7 +13,7 @@ import {
   getErrorMessage,
   Storage,
  MCPServerConfig } from '@google/gemini-cli-core';
-import stripJsonComments from 'strip-json-comments';
+import * as stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
@@ -305,7 +305,7 @@ export function loadEnvironment(settings?: Settings): void {
           'utf-8',
         );
         const parsedWorkspaceSettings = JSON.parse(
-          stripJsonComments(workspaceContent),
+          (stripJsonComments as any)(workspaceContent),
         ) as Settings;
         resolvedSettings = resolveEnvVarsInObject(parsedWorkspaceSettings);
       }
@@ -378,7 +378,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   try {
     if (fs.existsSync(systemSettingsPath)) {
       const systemContent = fs.readFileSync(systemSettingsPath, 'utf-8');
-      systemSettings = JSON.parse(stripJsonComments(systemContent)) as Settings;
+      systemSettings = JSON.parse((stripJsonComments as any)(systemContent)) as Settings;
     }
   } catch (error: unknown) {
     settingsErrors.push({
@@ -391,7 +391,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   try {
     if (fs.existsSync(USER_SETTINGS_PATH)) {
       const userContent = fs.readFileSync(USER_SETTINGS_PATH, 'utf-8');
-      userSettings = JSON.parse(stripJsonComments(userContent)) as Settings;
+      userSettings = JSON.parse((stripJsonComments as any)(userContent)) as Settings;
       // Support legacy theme names
       if (userSettings.theme && userSettings.theme === 'VS') {
         userSettings.theme = DefaultLight.name;
@@ -412,7 +412,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
       if (fs.existsSync(workspaceSettingsPath)) {
         const projectContent = fs.readFileSync(workspaceSettingsPath, 'utf-8');
         workspaceSettings = JSON.parse(
-          stripJsonComments(projectContent),
+          (stripJsonComments as any)(projectContent),
         ) as Settings;
         if (workspaceSettings.theme && workspaceSettings.theme === 'VS') {
           workspaceSettings.theme = DefaultLight.name;

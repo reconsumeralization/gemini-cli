@@ -69,7 +69,7 @@ export function loadTrustedFolders(): LoadedTrustedFolders {
   try {
     if (fs.existsSync(userPath)) {
       const content = fs.readFileSync(userPath, 'utf-8');
-      const parsed = JSON.parse(stripJsonComments(content)) as Record<
+      const parsed = JSON.parse((stripJsonComments as any)(content)) as Record<
         string,
         TrustLevel
       >;
