@@ -22,7 +22,7 @@ interface SecurityArgs {
   clear?: boolean;
 }
 
-const securityCommand: CommandModule<{}, SecurityArgs> = {
+const securityCommand: CommandModule<Record<string, never>, SecurityArgs> = {
   command: 'security',
   describe: 'Manage security settings and view security information',
   builder: (yargs) =>
@@ -160,4 +160,4 @@ const securityCommand: CommandModule<{}, SecurityArgs> = {
   }
 };
 
-export default securityCommand;
+export { securityCommand };

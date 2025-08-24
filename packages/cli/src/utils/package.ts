@@ -8,7 +8,7 @@ import {
   readPackageUp,
   type PackageJson as BasePackageJson,
 } from 'read-package-up';
-import { fileURLToPath } from 'url';
+// import { fileURLToPath } from 'url'; // Not needed with current approach
 import * as path from 'path';
 
 export type PackageJson = BasePackageJson & {

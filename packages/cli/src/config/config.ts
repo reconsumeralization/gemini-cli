@@ -12,7 +12,7 @@ import { hideBin } from 'yargs/helpers';
 import * as process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
 import { debugCommand } from '../commands/debug.js';
-import securityCommand from '../commands/security.js';
+import { securityCommand } from '../commands/security.js';
 import {
   Config,
   loadServerHierarchicalMemory,

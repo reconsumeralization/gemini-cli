@@ -9,7 +9,8 @@ import * as path from 'path';
 import { homedir } from 'os';
 import { getErrorMessage, isWithinRoot } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
-import * as stripJsonComments from 'strip-json-comments';
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const stripJsonComments = require('strip-json-comments');
 
 export const TRUSTED_FOLDERS_FILENAME = 'trustedFolders.json';
 export const SETTINGS_DIRECTORY_NAME = '.gemini';
@@ -69,7 +70,7 @@ export function loadTrustedFolders(): LoadedTrustedFolders {
   try {
     if (fs.existsSync(userPath)) {
       const content = fs.readFileSync(userPath, 'utf-8');
-      const parsed = JSON.parse((stripJsonComments as any)(content)) as Record<
+      const parsed = JSON.parse(stripJsonComments(content)) as Record<
         string,
         TrustLevel
       >;
