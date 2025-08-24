@@ -15,10 +15,8 @@ import {
  MCPServerConfig } from '@google/gemini-cli-core';
 import * as stripJsonComments from 'strip-json-comments';
 
-// Type for the CommonJS module export
-interface StripJsonCommentsModule {
-  default: (jsonString: string, options?: { whitespace?: boolean }) => string;
-}
+// Type for the CommonJS module export - strip-json-comments exports a function directly
+type StripJsonCommentsFunction = (jsonString: string, options?: { whitespace?: boolean }) => string;
 import { DefaultLight } from '../ui/themes/default-light.js';
 import { DefaultDark } from '../ui/themes/default.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
@@ -310,7 +308,7 @@ export function loadEnvironment(settings?: Settings): void {
           'utf-8',
         );
         const parsedWorkspaceSettings = JSON.parse(
-          (stripJsonComments as StripJsonCommentsModule).default(workspaceContent),
+          (stripJsonComments as StripJsonCommentsFunction)(workspaceContent),
         ) as Settings;
         resolvedSettings = resolveEnvVarsInObject(parsedWorkspaceSettings);
       }
@@ -383,7 +381,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   try {
     if (fs.existsSync(systemSettingsPath)) {
       const systemContent = fs.readFileSync(systemSettingsPath, 'utf-8');
-      systemSettings = JSON.parse((stripJsonComments as StripJsonCommentsModule).default(systemContent)) as Settings;
+      systemSettings = JSON.parse((stripJsonComments as StripJsonCommentsFunction)(systemContent)) as Settings;
     }
   } catch (error: unknown) {
     settingsErrors.push({
@@ -396,7 +394,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   try {
     if (fs.existsSync(USER_SETTINGS_PATH)) {
       const userContent = fs.readFileSync(USER_SETTINGS_PATH, 'utf-8');
-      userSettings = JSON.parse((stripJsonComments as StripJsonCommentsModule).default(userContent)) as Settings;
+      userSettings = JSON.parse((stripJsonComments as StripJsonCommentsFunction)(userContent)) as Settings;
       // Support legacy theme names
       if (userSettings.theme && userSettings.theme === 'VS') {
         userSettings.theme = DefaultLight.name;
@@ -417,7 +415,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
       if (fs.existsSync(workspaceSettingsPath)) {
         const projectContent = fs.readFileSync(workspaceSettingsPath, 'utf-8');
         workspaceSettings = JSON.parse(
-          (stripJsonComments as StripJsonCommentsModule).default(projectContent),
+          (stripJsonComments as StripJsonCommentsFunction)(projectContent),
         ) as Settings;
         if (workspaceSettings.theme && workspaceSettings.theme === 'VS') {
           workspaceSettings.theme = DefaultLight.name;

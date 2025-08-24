@@ -11,10 +11,8 @@ import { getErrorMessage, isWithinRoot } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 import * as stripJsonComments from 'strip-json-comments';
 
-// Type for the CommonJS module export
-interface StripJsonCommentsModule {
-  default: (jsonString: string, options?: { whitespace?: boolean }) => string;
-}
+// Type for the CommonJS module export - strip-json-comments exports a function directly
+type StripJsonCommentsFunction = (jsonString: string, options?: { whitespace?: boolean }) => string;
 
 export const TRUSTED_FOLDERS_FILENAME = 'trustedFolders.json';
 export const SETTINGS_DIRECTORY_NAME = '.gemini';
@@ -74,7 +72,7 @@ export function loadTrustedFolders(): LoadedTrustedFolders {
   try {
     if (fs.existsSync(userPath)) {
       const content = fs.readFileSync(userPath, 'utf-8');
-      const parsed = JSON.parse((stripJsonComments as StripJsonCommentsModule).default(content)) as Record<
+      const parsed = JSON.parse((stripJsonComments as StripJsonCommentsFunction)(content)) as Record<
         string,
         TrustLevel
       >;
