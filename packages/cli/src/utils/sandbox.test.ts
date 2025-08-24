@@ -93,3 +93,52 @@ describe('sandbox_helpers', () => {
     expect(cp).toBeDefined();
   });
 });
+
+describe('sandbox_helpers security enhancements', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('parseAndFilterSandboxEnv filters invalid keys/values and enforces limits', () => {
+    const raw = 'GOOD=A;BAD-KEY=b;EMPTY=;INJECT=a;export=foo;TOOLONG=' + 'x'.repeat(5000);
+    const env = parseAndFilterSandboxEnv(raw);
+    expect(env.GOOD).toBe('A');
+    expect(env['BAD-KEY']).toBeUndefined();
+    expect(env.EMPTY).toBeUndefined();
+    expect(env.INJECT).toBeUndefined();
+    expect(env.export).toBeUndefined();
+    expect(env.TOOLONG).toBeUndefined();
+  });
+
+  it('buildSafeEnv removes dangerous envs and preserves whitelisted ones', () => {
+    const parent = {
+      PATH: '/usr/bin',
+      LANG: 'C',
+      HOME: '/home/node',
+      TERM: 'xterm-256color',
+      GEMINI_API_KEY: 'secret',
+      LD_PRELOAD: 'hack',
+      HTTPS_PROXY: 'http://proxy:8080',
+      SANDBOX_ENV: 'GOOD=Y',
+    } as NodeJS.ProcessEnv;
+    const safe = buildSafeEnv(parent);
+    expect(safe.GEMINI_API_KEY).toBeUndefined();
+    expect(safe.LD_PRELOAD).toBeUndefined();
+    expect(safe.PATH).toBe('/usr/bin');
+    expect(safe.LANG).toBe('C');
+    expect(safe.TERM).toBe('xterm-256color');
+    expect(safe.GOOD).toBe('Y');
+    expect(safe.HTTPS_PROXY).toBe('http://proxy:8080');
+  });
+
+  it('parseCommandString respects token and length limits', () => {
+    const many = Array.from({ length: 40 }, (_, i) => `t${i}`).join(' ');
+    expect(parseCommandString(many)).toEqual([]);
+
+    const longToken = 'a'.repeat(10000);
+    expect(parseCommandString(longToken)).toEqual([]);
+
+    const ok = 'cmd "arg with space" b';
+    expect(parseCommandString(ok)).toEqual(['cmd', 'arg with space', 'b']);
+  });
+});

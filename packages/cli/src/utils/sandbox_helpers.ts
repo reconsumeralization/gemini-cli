@@ -12,13 +12,51 @@ import { spawn, ChildProcess } from 'node:child_process';
 const DANGEROUS_ENVS = new Set([
   'LD_PRELOAD',
   'LD_LIBRARY_PATH',
+  'DYLD_INSERT_LIBRARIES',
   'BASH_ENV',
   'ENV',
   'IFS',
   'NODE_OPTIONS',
   'PYTHONPATH',
   'JAVA_TOOL_OPTIONS',
+  // Credentials and sensitive tokens should never leak to proxy processes
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'SSH_AUTH_SOCK',
 ]);
+
+// Conservative whitelist of env vars to forward to child processes
+const SAFE_ENV_WHITELIST = new Set([
+  'PATH',
+  'LANG',
+  'HOME',
+  'TERM',
+  'COLORTERM',
+  'TZ',
+]);
+
+// Limits to avoid resource exhaustion
+const MAX_SANDBOX_ENV_PAIRS = 64;
+const MAX_ENV_KEY_LENGTH = 64;
+const MAX_ENV_VALUE_LENGTH = 4096;
+const MAX_TOKENS = 32;
+const MAX_TOKEN_LENGTH = 4096;
+
+function isSafeProxyUrl(url: string): boolean {
+  if (!isSafeEnvValue(url)) return false;
+  // Only allow http/https proxy URLs with a host component
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (!u.hostname) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Minimal tokeniser for a command line preserving quoted tokens.
  *  This is intentionally small and conservative.
@@ -40,25 +78,33 @@ export function parseCommandString(raw: string): string[] {
     }
     if (ch === ' ' && !inSingle && !inDouble) {
       if (cur.length) {
+        if (cur.length > MAX_TOKEN_LENGTH) return [];
         tokens.push(cur);
+        if (tokens.length > MAX_TOKENS) return [];
         cur = '';
       }
       continue;
     }
     cur += ch;
+    if (cur.length > MAX_TOKEN_LENGTH) return [];
   }
-  if (cur.length) tokens.push(cur);
+  if (cur.length) {
+    if (cur.length > MAX_TOKEN_LENGTH) return [];
+    tokens.push(cur);
+  }
+  if (tokens.length > MAX_TOKENS) return [];
   return tokens;
 }
 
 export function isValidEnvKey(key: string): boolean {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && key.length <= MAX_ENV_KEY_LENGTH;
 }
 
 export function isSafeEnvValue(val: string): boolean {
   // disallow control chars and shell metacharacters
   if (val === undefined || val === null) return true;
   if (typeof val !== 'string') return false;
+  if (val.length > MAX_ENV_VALUE_LENGTH) return false;
   if (/[\r\n]/.test(val)) return false;
   // disallow `;|&$<>` and backticks and newlines
   if (/[;&|`$<>]/.test(val)) return false;
@@ -70,7 +116,12 @@ export function parseAndFilterSandboxEnv(raw?: string): Record<string, string> {
   const out: Record<string, string> = {};
   if (!raw) return out;
   const parts = raw.split(',');
+
+  let count = 0;
+  let totalSize = 0;
+
   for (const rawPart of parts) {
+    if (count >= MAX_SANDBOX_ENV_PAIRS) break;
     const part = rawPart.trim();
     if (!part) continue;
     const eq = part.indexOf('=');
@@ -80,7 +131,11 @@ export function parseAndFilterSandboxEnv(raw?: string): Record<string, string> {
     if (!isValidEnvKey(key)) continue;
     if (!isSafeEnvValue(value)) continue;
     if (value.length === 0) continue; // skip empty values
+    const size = key.length + value.length;
+    if (totalSize + size > MAX_SANDBOX_ENV_PAIRS * MAX_ENV_VALUE_LENGTH) break;
     out[key] = value;
+    count++;
+    totalSize += size;
   }
   return out;
 }
@@ -91,18 +146,37 @@ export function buildSafeEnv(parent: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
   // Minimal PATH fallback - prefer parent's PATH if set, otherwise sane default
   safe.PATH = parent.PATH || '/usr/bin:/bin';
-  if (parent.LANG) safe.LANG = parent.LANG;
-  if (parent.HOME) safe.HOME = parent.HOME;
 
-  // Add additional safe variables that are strictly whitelisted (extend as needed)
-  const whitelist = ['TERM', 'USER', 'LOGNAME']; // minimal
-  for (const k of whitelist) {
-    if (k in parent && typeof parent[k] === 'string') safe[k] = parent[k]!;
+  // Pass-through from SAFE_ENV_WHITELIST
+  for (const k of SAFE_ENV_WHITELIST) {
+    const v = parent[k];
+    if (typeof v === 'string' && isSafeEnvValue(v)) {
+      safe[k] = v;
+    }
+  }
+
+  // Proxy-related vars: allow but validate; both cases for compatibility
+  for (const k of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy'] as const) {
+    const v = parent[k];
+    if (typeof v === 'string' && isSafeProxyUrl(v)) {
+      safe[k] = v;
+    }
+  }
+  for (const k of ['NO_PROXY', 'no_proxy'] as const) {
+    const v = parent[k];
+    if (typeof v === 'string' && isSafeEnvValue(v)) {
+      safe[k] = v;
+    }
   }
 
   // Add sanitized SANDBOX_ENV entries
   const extra = parseAndFilterSandboxEnv(parent.SANDBOX_ENV);
   for (const k of Object.keys(extra)) safe[k] = extra[k];
+
+  // Explicit pruning of dangerous variables in case they slipped through
+  for (const d of DANGEROUS_ENVS) {
+    if (d in safe) delete safe[d];
+  }
 
   return safe;
 }
