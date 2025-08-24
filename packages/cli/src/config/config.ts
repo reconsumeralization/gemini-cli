@@ -12,6 +12,7 @@ import { hideBin } from 'yargs/helpers';
 import * as process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
 import { debugCommand } from '../commands/debug.js';
+import securityCommand from '../commands/security.js';
 import {
   Config,
   loadServerHierarchicalMemory,
@@ -255,6 +256,7 @@ export async function parseArguments(): Promise<CliArgs> {
     // Register MCP subcommands
     .command(mcpCommand)
     .command(debugCommand)
+    .command(securityCommand)
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
