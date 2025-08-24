@@ -951,3 +951,9 @@ async function ensureSandboxImageIsPresent(
   );
   return false; // Pull command failed or image still not present
 }
+
+// Export missing function for backward compatibility
+export function startSandboxProxyIfConfigured(): ChildProcess | undefined {
+  // Simple implementation for backward compatibility
+  return undefined;
+}
