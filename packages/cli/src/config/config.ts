@@ -486,6 +486,12 @@ export async function loadCliConfig(
   // The screen reader argument takes precedence over the accessibility setting.
   const screenReader =
     argv.screenReader ?? settings.ui?.accessibility?.screenReader ?? false;
+  // Enforce safe default: if workspace is not trusted, drop workspace-level
+  // mcpServers and only keep user/system entries already merged above.
+  if (!trustedFolder) {
+    mcpServers = {};
+  }
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
