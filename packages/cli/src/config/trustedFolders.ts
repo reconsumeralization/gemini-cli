@@ -116,11 +116,11 @@ export function isWorkspaceTrusted(settings: Settings): boolean | undefined {
   const folderTrustSetting = settings.security?.folderTrust?.enabled ?? true;
   const folderTrustEnabled = folderTrustFeature && folderTrustSetting;
 
-  // Safer-by-default: if the folder trust feature isn't explicitly enabled,
-  // treat the current workspace as untrusted. This prevents project-scoped
-  // settings from taking effect unless the user has explicitly opted in.
+  // If the folder trust feature isn't explicitly enabled, default behavior is
+  // backward compatible (trusted) unless hardened default is requested via env.
+  // Set GEMINI_SAFE_TRUST_DEFAULT=1 to default to untrusted.
   if (!folderTrustEnabled) {
-    return false;
+    return process.env['GEMINI_SAFE_TRUST_DEFAULT'] === '1' ? false : true;
   }
 
   const { rules, errors } = loadTrustedFolders();
