@@ -583,7 +583,9 @@ export function loadEnvironment(settings?: Settings): void {
     }
   }
 
-  if (envFilePath) {
+  // Only load project-level env when the workspace is trusted. This avoids
+  // untrusted repos injecting environment variables by dropping a .env file.
+  if (envFilePath && (resolvedSettings?.security?.folderTrust?.enabled ?? false)) {
     // Manually parse and load environment variables to handle exclusions correctly.
     // This avoids modifying environment variables that were already set from the shell.
     try {
@@ -730,7 +732,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   // For the initial trust check, we can only use user and system settings.
   const initialTrustCheckSettings = mergeWith({}, systemSettings, userSettings);
   const isTrusted =
-    isWorkspaceTrusted(initialTrustCheckSettings as Settings) ?? true;
+    isWorkspaceTrusted(initialTrustCheckSettings as Settings) ?? false;
 
   // Create a temporary merged settings object to pass to loadEnvironment.
   const tempMergedSettings = mergeSettings(
