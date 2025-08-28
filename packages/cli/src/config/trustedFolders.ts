@@ -116,8 +116,11 @@ export function isWorkspaceTrusted(settings: Settings): boolean | undefined {
   const folderTrustSetting = settings.security?.folderTrust?.enabled ?? true;
   const folderTrustEnabled = folderTrustFeature && folderTrustSetting;
 
+  // Safer-by-default: if the folder trust feature isn't explicitly enabled,
+  // treat the current workspace as untrusted. This prevents project-scoped
+  // settings from taking effect unless the user has explicitly opted in.
   if (!folderTrustEnabled) {
-    return true;
+    return false;
   }
 
   const { rules, errors } = loadTrustedFolders();
