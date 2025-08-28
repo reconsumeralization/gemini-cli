@@ -302,9 +302,18 @@ export async function start_sandbox(
           sandboxEnv['NO_PROXY'] = noProxy;
           sandboxEnv['no_proxy'] = noProxy;
         }
-        proxyProcess = spawn(proxyCommand, {
+        const parsedProxy = parse(proxyCommand, process.env).filter(
+          (t): t is string => typeof t === 'string',
+        );
+        if (parsedProxy.length === 0) {
+          throw new FatalSandboxError(
+            `Invalid GEMINI_SANDBOX_PROXY_COMMAND: '${proxyCommand}'`,
+          );
+        }
+        const [proxyBin, ...proxyArgs] = parsedProxy;
+        proxyProcess = spawn(proxyBin, proxyArgs, {
           stdio: ['ignore', 'pipe', 'pipe'],
-          shell: true,
+          shell: false,
           detached: true,
         });
         // install handlers to stop proxy on exit/signal
@@ -747,11 +756,39 @@ export async function start_sandbox(
     let sandboxProcess: ChildProcess | undefined = undefined;
 
     if (proxyCommand) {
-      // run proxyCommand in its own container
-      const proxyContainerCommand = `${config.command} run --rm --init ${userFlag} --name ${SANDBOX_PROXY_NAME} --network ${SANDBOX_PROXY_NAME} -p 8877:8877 -v ${process.cwd()}:${workdir} --workdir ${workdir} ${image} ${proxyCommand}`;
-      proxyProcess = spawn(proxyContainerCommand, {
+      // run proxyCommand in its own container without invoking a shell
+      const userArgs = userFlag
+        ? (userFlag.split(' ') as string[])
+        : [];
+      const proxyArgsParsed = parse(proxyCommand, process.env).filter(
+        (t): t is string => typeof t === 'string',
+      );
+      if (proxyArgsParsed.length === 0) {
+        throw new FatalSandboxError(
+          `Invalid GEMINI_SANDBOX_PROXY_COMMAND: '${proxyCommand}'`,
+        );
+      }
+      const proxyRunArgs = [
+        'run',
+        '--rm',
+        '--init',
+        ...userArgs,
+        '--name',
+        SANDBOX_PROXY_NAME,
+        '--network',
+        SANDBOX_PROXY_NAME,
+        '-p',
+        '8877:8877',
+        '-v',
+        `${process.cwd()}:${workdir}`,
+        '--workdir',
+        workdir,
+        image,
+        ...proxyArgsParsed,
+      ];
+      proxyProcess = spawn(config.command, proxyRunArgs, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+        shell: false,
         detached: true,
       });
       // install handlers to stop proxy on exit/signal
@@ -775,7 +812,7 @@ export async function start_sandbox(
           process.kill(-sandboxProcess.pid, 'SIGTERM');
         }
         throw new FatalSandboxError(
-          `Proxy container command '${proxyContainerCommand}' exited with code ${code}, signal ${signal}`,
+          `Proxy container exited with code ${code}, signal ${signal}`,
         );
       });
       console.log('waiting for proxy to start ...');
