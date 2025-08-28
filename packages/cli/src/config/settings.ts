@@ -585,7 +585,14 @@ export function loadEnvironment(settings?: Settings): void {
 
   // Only load project-level env when the workspace is trusted. This avoids
   // untrusted repos injecting environment variables by dropping a .env file.
-  if (envFilePath && (resolvedSettings?.security?.folderTrust?.enabled ?? false)) {
+  const workspaceTrustEnabled =
+    resolvedSettings?.security?.folderTrust?.featureEnabled ?? false;
+  const workspaceTrusted = workspaceTrustEnabled
+    ? resolvedSettings?.security?.folderTrust?.enabled ?? true
+    : process.env['GEMINI_SAFE_TRUST_DEFAULT'] === '1'
+      ? false
+      : true;
+  if (envFilePath && workspaceTrusted) {
     // Manually parse and load environment variables to handle exclusions correctly.
     // This avoids modifying environment variables that were already set from the shell.
     try {
@@ -732,7 +739,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
   // For the initial trust check, we can only use user and system settings.
   const initialTrustCheckSettings = mergeWith({}, systemSettings, userSettings);
   const isTrusted =
-    isWorkspaceTrusted(initialTrustCheckSettings as Settings) ?? false;
+    isWorkspaceTrusted(initialTrustCheckSettings as Settings) ?? true;
 
   // Create a temporary merged settings object to pass to loadEnvironment.
   const tempMergedSettings = mergeSettings(
