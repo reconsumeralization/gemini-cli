@@ -553,14 +553,19 @@ export function setUpCloudShellEnvironment(envFilePath: string | null): void {
   }
 }
 
-export function loadEnvironment(settings?: Settings): void {
+export function loadEnvironment(settings: Settings): void {
   const envFilePath = findEnvFile(process.cwd());
+
+  if (!isWorkspaceTrusted(settings)) {
+    return;
+  }
 
   // Cloud Shell environment variable handling
   if (process.env['CLOUD_SHELL'] === 'true') {
     setUpCloudShellEnvironment(envFilePath);
   }
 
+<<<<<<< HEAD
   // If no settings provided, try to load workspace settings for exclusions
   let resolvedSettings = settings;
   if (!resolvedSettings) {
@@ -601,8 +606,7 @@ export function loadEnvironment(settings?: Settings): void {
       const parsedEnv = dotenv.parse(envFileContent);
 
       const excludedVars =
-        resolvedSettings?.advanced?.excludedEnvVars ||
-        DEFAULT_EXCLUDED_ENV_VARS;
+        settings?.advanced?.excludedEnvVars || DEFAULT_EXCLUDED_ENV_VARS;
       const isProjectEnvFile = !envFilePath.includes(GEMINI_DIR);
 
       for (const key in parsedEnv) {
