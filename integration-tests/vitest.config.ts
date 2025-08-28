@@ -14,5 +14,6 @@ export default defineConfig({
     include: ['**/*.test.ts'],
     retry: 2,
     fileParallelism: false,
+    globals: true,
   },
 });
