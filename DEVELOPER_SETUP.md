@@ -1,4 +1,4 @@
-Developer setup and recommended VS Code configuration
+# Developer setup and recommended VS Code configuration
 
 Recommended extensions (these are included in `.vscode/extensions.json`):
 

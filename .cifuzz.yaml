@@ -1,0 +1,47 @@
+# CIFuzz config for Gemini CLI
+# This configuration runs a selection of JS and Go fuzz targets in CI.
+
+fuzz_targets:
+  # JavaScript fuzz targets (assumes fuzzers under fuzzers/js)
+  - fuzzers/js/fuzz_config_parser.js
+  - fuzzers/js/fuzz_mcp_request.js
+  - fuzzers/js/fuzz_mcp_response.js
+  - fuzzers/js/fuzz_oauth_token_request.js
+  - fuzzers/js/fuzz_oauth_token_response.js
+  - fuzzers/js/fuzz_cli_parser.js
+  - fuzzers/js/fuzz_http_request_parser.js
+  - fuzzers/js/fuzz_file_path_handler.js
+  - fuzzers/js/fuzz_env_parser.js
+  - fuzzers/js/fuzz_response_parser.js
+  # Go fuzz targets (from oss-fuzz/gemini_cli)
+  - oss-fuzz/gemini_cli:FuzzConfigParser
+  - oss-fuzz/gemini_cli:FuzzCLIParser
+  - oss-fuzz/gemini_cli:FuzzMCPRequest
+  - oss-fuzz/gemini_cli:FuzzMCPResponse
+  - oss-fuzz/gemini_cli:FuzzOAuthTokenRequest
+
+max_run_time: 300
+max_iterations: 1000
+sanitizers:
+  - address
+
+build_system: custom
+build_script: build.sh
+
+report_failures: true
+upload_crashes: false
+
+use_seed_corpus: true
+seed_corpus_dir: seeds
+
+use_dictionaries: true
+dictionary_dir: fuzzers/dictionaries
+
+generate_coverage: true
+coverage_format: html
+
+# Notes:
+# - This config assumes JavaScript fuzzers are present under `fuzzers/js` and
+#   Go fuzzers are in `oss-fuzz/gemini_cli` built by the top-level `build.sh`.
+# - If JS fuzzers are not present yet, CIFuzz will fail to find them; either
+#   add the JS fuzzers or remove JS entries from this config before enabling CI.
