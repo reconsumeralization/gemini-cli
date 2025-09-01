@@ -20,6 +20,13 @@
       "problemMatcher": [],
       "label": "npm: build: vscode-ide-companion",
       "detail": "npm run build -w packages/vscode-ide-companion"
+    },
+    {
+      "label": "oss-fuzz: build gemini_cli",
+      "type": "shell",
+      "command": "OUT=out ./oss-fuzz/gemini_cli/build.sh",
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }

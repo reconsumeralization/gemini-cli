@@ -1,0 +1,7 @@
+name: gemini_cli
+project: gemini-cli
+sanitizers:
+  - address
+  - undefined
+  - leak
+language: go
