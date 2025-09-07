@@ -103,10 +103,10 @@ export class SecureHeadersManager {
     this.rotateTokenSecrets();
   }
 
-  generateSecureHeaders(securityContext: SecurityContext): SecurityHeaders {
+  async generateSecureHeaders(securityContext: SecurityContext): Promise<SecurityHeaders> {
     const requestId = this.generateRequestId();
     const timestamp = Date.now().toString();
-    const securityToken = this.generateSecurityToken(securityContext, requestId);
+    const securityToken = await this.generateSecurityToken(securityContext, requestId);
 
     const csp = this.generateCSP(securityContext);
     const permissionsPolicy = this.generatePermissionsPolicy(securityContext);
@@ -237,7 +237,7 @@ export class SecureHeadersManager {
     return policies.join(', ');
   }
 
-  private generateSecurityToken(context: SecurityContext, requestId: string): string {
+  private async generateSecurityToken(context: SecurityContext, requestId: string): Promise<string> {
     const payload = {
       requestId,
       extensionId: context.extensionId,
@@ -247,7 +247,7 @@ export class SecureHeadersManager {
     };
 
     const token = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const signature = this.generateSignature(token);
+    const signature = await this.generateSignature(token);
 
     return `${token}.${signature}`;
   }
@@ -274,7 +274,7 @@ export class SecureHeadersManager {
     logger.debug('🔄 Token secrets rotated', { secretId });
   }
 
-  private generateSignature(data: string): string {
+  private async generateSignature(data: string): Promise<string> {
     // Use the most recent secret for signing new tokens
     const currentSecret = Array.from(this.tokenSecrets.values())
       .sort((a, b) => b.created - a.created)[0];
@@ -291,49 +291,7 @@ export class SecureHeadersManager {
     return createHmac('sha256', currentSecret.secret).update(data).digest('hex').substring(0, 16);
   }
 
-  /**
-   * Constant-time string comparison to prevent timing attacks
-   */
-  private timingSafeEquals(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false;
-    }
 
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-
-    return result === 0;
-  }
-
-  /**
-   * Timing-safe token verification
-   */
-  private timingSafeTokenVerification(token: string, expectedSignature: string): boolean {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 2) {
-        // Constant-time delay for invalid format
-        this.constantTimeDelay(100);
-        return false;
-      }
-
-      const [_payload, _signature] = parts;
-
-      // Always perform signature verification regardless of format validation
-      const isValidSignature = this.timingSafeEquals(_signature, expectedSignature);
-
-      // Add constant delay to prevent timing attacks
-      this.constantTimeDelay(50);
-
-      return isValidSignature;
-    } catch {
-      // Constant-time delay for errors
-      this.constantTimeDelay(100);
-      return false;
-    }
-  }
 
   /**
    * Constant-time delay to prevent timing attacks
@@ -346,10 +304,10 @@ export class SecureHeadersManager {
   }
 
   private generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `req_${Date.now()}_${randomBytes(8).toString('hex')}`;
   }
 
-  validateSecurityToken(token: string): { valid: boolean; context?: SecurityContext; error?: string } {
+  async validateSecurityToken(token: string): Promise<{ valid: boolean; context?: SecurityContext; error?: string }> {
     try {
       // Always perform timing-safe verification first
       const parts = token.split('.');
@@ -362,10 +320,12 @@ export class SecureHeadersManager {
       const [, _signature] = parts;
 
       // Generate expected signature using the full token for verification
-      const expectedSignature = this.generateSignature(parts[0]);
+      const expectedSignature = await this.generateSignature(parts[0]);
 
-      // Use timing-safe comparison
-      if (!this.timingSafeTokenVerification(token, expectedSignature)) {
+      // Use timing-safe comparison with crypto.timingSafeEqual
+      const crypto = await import('crypto');
+      if (_signature.length !== expectedSignature.length ||
+          !crypto.timingSafeEqual(Buffer.from(_signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
         return { valid: false, error: 'Invalid token signature' };
       }
 
@@ -398,11 +358,11 @@ export class SecureHeadersManager {
     }
   }
 
-  validateSecurityHeaders(headers: Record<string, string>, expectedToken?: string): {
+  async validateSecurityHeaders(headers: Record<string, string>, expectedToken?: string): Promise<{
     valid: boolean;
     violations: string[];
     riskLevel: 'low' | 'medium' | 'high' | 'critical';
-  } {
+  }> {
     const violations: string[] = [];
     let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
 
@@ -424,7 +384,7 @@ export class SecureHeadersManager {
 
     // Validate security token
     if (expectedToken && headers['X-VSCode-Security-Token']) {
-      const tokenValidation = this.validateSecurityToken(headers['X-VSCode-Security-Token']);
+      const tokenValidation = await this.validateSecurityToken(headers['X-VSCode-Security-Token']);
       if (!tokenValidation.valid) {
         violations.push(`Invalid security token: ${tokenValidation.error}`);
         riskLevel = 'critical';

@@ -10,6 +10,34 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from './logger.js';
 
+// Simple mutex implementation for audit operations
+class AuditMutex {
+  private locked = false;
+  private waiting: Array<() => void> = [];
+
+  async acquire(): Promise<() => void> {
+    return new Promise((resolve) => {
+      if (!this.locked) {
+        this.locked = true;
+        resolve(() => this.release());
+      } else {
+        this.waiting.push(() => {
+          this.locked = true;
+          resolve(() => this.release());
+        });
+      }
+    });
+  }
+
+  private release(): void {
+    this.locked = false;
+    if (this.waiting.length > 0) {
+      const next = this.waiting.shift();
+      if (next) next();
+    }
+  }
+}
+
 export interface AuditEvent {
   id: string;
   timestamp: number;
@@ -162,6 +190,11 @@ class AuditTrailManager {
   private metrics: AuditMetrics;
   private flushTimer?: NodeJS.Timeout;
 
+  // Synchronization primitives
+  private bufferMutex = new AuditMutex();
+  private metricsMutex = new AuditMutex();
+  private fileWriteMutex = new AuditMutex();
+
   static getInstance(): AuditTrailManager {
     if (!AuditTrailManager.instance) {
       AuditTrailManager.instance = new AuditTrailManager();
@@ -245,8 +278,12 @@ class AuditTrailManager {
 
     // Start real-time processing if enabled
     if (this.config.realTime.enabled) {
-      this.flushTimer = setInterval(() => {
-        this.flushEvents();
+      this.flushTimer = setInterval(async () => {
+        try {
+          await this.flushEvents();
+        } catch (error) {
+          logger.error('❌ Audit flush failed', { error: error instanceof Error ? error.message : String(error) });
+        }
       }, this.config.realTime.flushInterval);
     }
 
@@ -314,20 +351,31 @@ class AuditTrailManager {
       this.addForensicData(auditEvent);
     }
 
-    // Buffer or write immediately
+    // Buffer or write immediately with synchronization
     if (this.config.realTime.enabled) {
-      this.eventBuffer.push(auditEvent);
+      const bufferUnlock = await this.bufferMutex.acquire();
+      try {
+        this.eventBuffer.push(auditEvent);
 
-      // Flush if buffer is full
-      if (this.eventBuffer.length >= this.config.realTime.bufferSize) {
-        await this.flushEvents();
+        // Flush if buffer is full
+        if (this.eventBuffer.length >= this.config.realTime.bufferSize) {
+          await this.flushEvents();
+        }
+      } finally {
+        bufferUnlock();
       }
     } else {
       await this.writeEvent(auditEvent);
     }
 
-    this.metrics.totalEvents++;
-    this.updateMetrics();
+    // Update metrics with synchronization
+    const metricsUnlock = await this.metricsMutex.acquire();
+    try {
+      this.metrics.totalEvents++;
+      this.updateMetrics();
+    } finally {
+      metricsUnlock();
+    }
 
     logger.debug('📝 Audit event recorded', {
       id: auditEvent.id,
@@ -445,19 +493,30 @@ class AuditTrailManager {
   }
 
   private async flushEvents(): Promise<void> {
-    if (this.eventBuffer.length === 0) return;
+    const bufferUnlock = await this.bufferMutex.acquire();
+    let eventsToFlush: AuditEvent[] = [];
+    try {
+      if (this.eventBuffer.length === 0) return;
 
-    const eventsToFlush = [...this.eventBuffer];
-    this.eventBuffer = [];
+      eventsToFlush = [...this.eventBuffer];
+      this.eventBuffer = [];
+    } finally {
+      bufferUnlock();
+    }
 
     try {
       await Promise.all(eventsToFlush.map(event => this.writeEvent(event)));
       logger.debug('📤 Audit events flushed', { count: eventsToFlush.length });
-    } catch {
-      logger.error('❌ Failed to flush audit events');
+    } catch (error) {
+      logger.error('❌ Failed to flush audit events', { error: error instanceof Error ? error.message : String(error) });
 
-      // Re-queue events for retry
-      this.eventBuffer.unshift(...eventsToFlush);
+      // Re-queue events for retry with synchronization
+      const requeueUnlock = await this.bufferMutex.acquire();
+      try {
+        this.eventBuffer.unshift(...eventsToFlush);
+      } finally {
+        requeueUnlock();
+      }
     }
   }
 
@@ -493,18 +552,30 @@ class AuditTrailManager {
     }
 
     if (this.config.storage.encryption) {
-      // Simple encryption simulation
-      const key = crypto.scryptSync('audit-key', 'salt', 32);
-      const cipher = crypto.createCipher('aes-256-cbc', key);
-      data = cipher.update(data, 'utf8', 'hex') + cipher.final('hex');
+      // Use PBKDF2 for key derivation (more secure than scryptSync for this use case)
+      const salt = crypto.randomBytes(32);
+      const key = await new Promise<Buffer>((resolve, reject) => {
+        crypto.pbkdf2('audit-key', salt, 100000, 32, 'sha256', (err, derivedKey) => {
+          if (err) reject(err);
+          else resolve(derivedKey);
+        });
+      });
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+      data = iv.toString('hex') + ':' + cipher.update(data, 'utf8', 'hex') + cipher.final('hex');
     }
 
+    // Use file write mutex to prevent concurrent writes to the same file
+    const fileUnlock = await this.fileWriteMutex.acquire();
     try {
       fs.appendFileSync(filePath, data);
-    } catch {
+    } catch (error) {
       logger.error('❌ Failed to write audit event to file', {
-        filePath
+        filePath,
+        error: error instanceof Error ? error.message : String(error)
       });
+    } finally {
+      fileUnlock();
     }
   }
 
@@ -523,19 +594,24 @@ class AuditTrailManager {
     logger.debug('☁️ Audit event would be written to cloud', { eventId: event.id });
   }
 
-  private updateMetrics(): void {
-    const now = Date.now();
-    // Update events per second (simple moving average)
-    this.metrics.eventsPerSecond = this.metrics.totalEvents / Math.max(1, (now - Date.now() + 1000) / 1000);
+  private async updateMetrics(): Promise<void> {
+    const metricsUnlock = await this.metricsMutex.acquire();
+    try {
+      const now = Date.now();
+      // Update events per second (simple moving average)
+      this.metrics.eventsPerSecond = this.metrics.totalEvents / Math.max(1, (now - Date.now() + 1000) / 1000);
 
-    // Update storage size (simplified)
-    if (this.config.storage.type === 'file' && this.config.storage.path) {
-      try {
-        const stats = fs.statSync(this.config.storage.path);
-        this.metrics.storageSize = stats.size;
-      } catch {
-        this.metrics.storageSize = 0;
+      // Update storage size (simplified)
+      if (this.config.storage.type === 'file' && this.config.storage.path) {
+        try {
+          const stats = fs.statSync(this.config.storage.path);
+          this.metrics.storageSize = stats.size;
+        } catch {
+          this.metrics.storageSize = 0;
+        }
       }
+    } finally {
+      metricsUnlock();
     }
   }
 
@@ -745,12 +821,25 @@ class AuditTrailManager {
   private convertToCSV(events: AuditEvent[]): string {
     if (events.length === 0) return '';
 
-    const headers = Object.keys(events[0]);
+    // Collect all possible headers from all events
+    const headers = Array.from(
+      events.reduce((acc, event) => {
+        Object.keys(event).forEach((key) => acc.add(key));
+        return acc;
+      }, new Set<string>()),
+    );
+
     const csvRows = [
       headers.join(','),
-      ...events.map(event =>
-        headers.map(header => JSON.stringify((event as AuditEvent & Record<string, unknown>)[header])).join(',')
-      )
+      ...events.map((event) =>
+        headers
+          .map((header) =>
+            JSON.stringify(
+              (event as AuditEvent & Record<string, unknown>)[header] ?? '',
+            ),
+          )
+          .join(','),
+      ),
     ];
 
     return csvRows.join('\n');
@@ -762,7 +851,8 @@ class AuditTrailManager {
     events.forEach(event => {
       xml += '  <event>\n';
       Object.entries(event).forEach(([key, value]) => {
-        xml += `    <${key}>${JSON.stringify(value)}</${key}>\n`;
+        const sanitizedKey = key.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        xml += `    <${sanitizedKey}>${JSON.stringify(value)}</${sanitizedKey}>\n`;
       });
       xml += '  </event>\n';
     });
@@ -776,9 +866,14 @@ class AuditTrailManager {
       clearInterval(this.flushTimer);
     }
 
-    // Flush remaining events
-    if (this.eventBuffer.length > 0) {
-      await this.flushEvents();
+    // Flush remaining events with synchronization
+    const bufferUnlock = await this.bufferMutex.acquire();
+    try {
+      if (this.eventBuffer.length > 0) {
+        await this.flushEvents();
+      }
+    } finally {
+      bufferUnlock();
     }
 
     this.isInitialized = false;

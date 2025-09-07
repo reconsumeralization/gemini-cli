@@ -5,6 +5,7 @@
  */
 
 // Comprehensive Security Hardening for VS Code Plugin Integration
+import { randomBytes } from 'crypto';
 import { logger } from '../../utils/logger.js';
 import { SecurityHeaders } from './secureHeaders.js';
 import { auditTrail } from '../../utils/auditTrail.js';
@@ -369,7 +370,7 @@ class SecurityHardeningManager {
         Array.from(this.dangerousAPIs).forEach(api => {
           if (value.includes(api)) {
             violations.push({
-              id: `api_violation_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+              id: `api_violation_${Date.now()}_${randomBytes(4).toString('hex')}`,
               timestamp: Date.now(),
               type: 'api_abuse',
               severity: 'high',
@@ -407,7 +408,7 @@ class SecurityHardeningManager {
           if (pattern.test(value)) {
             const severity = this.determinePatternSeverity(pattern);
             violations.push({
-              id: `pattern_violation_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+              id: `pattern_violation_${Date.now()}_${randomBytes(4).toString('hex')}`,
               timestamp: Date.now(),
               type: this.determinePatternType(pattern),
               severity,
@@ -536,12 +537,26 @@ class SecurityHardeningManager {
     const violations: SecurityViolation[] = [];
 
     // Check for tampering indicators
-    const dataString = JSON.stringify(obj);
     // In production, compare against known good hashes
-    // const hash = crypto.createHash('sha256').update(dataString).digest('hex');
-    // For now, just check for obviously suspicious content
+    // const hash = crypto.createHash('sha256').update(JSON.stringify(obj)).digest('hex');
+    // For now, check for prototype pollution patterns using recursive traversal
 
-    if (dataString.includes('__proto__') || dataString.includes('constructor') || dataString.includes('prototype')) {
+    const checkObjectForPollution = (obj: unknown): boolean => {
+      if (obj === null || typeof obj !== 'object') {
+        return false;
+      }
+      for (const key in obj) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+          return true;
+        }
+        if (checkObjectForPollution((obj as Record<string, unknown>)[key])) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (checkObjectForPollution(obj)) {
       violations.push({
         id: `integrity_violation_${Date.now()}`,
         timestamp: Date.now(),
@@ -720,7 +735,7 @@ class SecurityHardeningManager {
         vscodeVersion: context.vscodeVersion ?? 'unknown',
         workspaceTrust: context.workspaceTrust ?? false
       };
-      const securityHeaders = secureHeadersManager.generateSecureHeaders(securityContext);
+      const securityHeaders = await secureHeadersManager.generateSecureHeaders(securityContext);
       hardened._securityHeaders = securityHeaders;
     }
 
