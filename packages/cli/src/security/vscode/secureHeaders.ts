@@ -5,6 +5,7 @@
  */
 
 // Secure Headers and CSP for VS Code Plugin Communication
+import { createHmac, randomBytes } from 'crypto';
 import { logger } from '../../utils/logger.js';
 
 export interface SecurityHeaders {
@@ -30,6 +31,15 @@ export interface SecurityHeaders {
   // Feature policy
   'Permissions-Policy': string;
 
+  // Cross-Origin Embedder Policy
+  'Cross-Origin-Embedder-Policy'?: string;
+
+  // Cross-Origin Opener Policy
+  'Cross-Origin-Opener-Policy'?: string;
+
+  // Cross-Origin Resource Policy
+  'Cross-Origin-Resource-Policy'?: string;
+
   // Custom security headers
   'X-VSCode-Security-Token': string;
   'X-Request-ID': string;
@@ -48,8 +58,11 @@ export interface CSPDirectives {
   'frame-src': string[];
   'frame-ancestors': string[];
   'form-action': string[];
+  'base-uri': string[];
   'upgrade-insecure-requests'?: boolean;
   'block-all-mixed-content'?: boolean;
+  'require-trusted-types-for'?: string[];
+  'trusted-types'?: string[];
 }
 
 export interface SecurityContext {
@@ -65,6 +78,8 @@ export interface SecurityContext {
 export class SecureHeadersManager {
   private static instance: SecureHeadersManager;
   private securityTokens = new Map<string, { token: string; expires: number; context: SecurityContext }>();
+  private tokenSecrets = new Map<string, { secret: Buffer; created: number; expires: number }>();
+  private readonly TOKEN_SECRET_ROTATION_HOURS = 24;
 
   static getInstance(): SecureHeadersManager {
     if (!SecureHeadersManager.instance) {
@@ -78,6 +93,14 @@ export class SecureHeadersManager {
     setInterval(() => {
       this.cleanupExpiredTokens();
     }, 5 * 60 * 1000);
+
+    // Rotate token secrets periodically
+    setInterval(() => {
+      this.rotateTokenSecrets();
+    }, this.TOKEN_SECRET_ROTATION_HOURS * 60 * 60 * 1000);
+
+    // Initialize first secret
+    this.rotateTokenSecrets();
   }
 
   generateSecureHeaders(securityContext: SecurityContext): SecurityHeaders {
@@ -123,24 +146,35 @@ export class SecureHeadersManager {
       headers['Content-Security-Policy-Report-Only'] = this.generateCSPReportOnly(securityContext);
     }
 
+    // Add modern security headers for VS Code extensions
+    if (securityContext.isExtension) {
+      headers['Cross-Origin-Embedder-Policy'] = 'require-corp';
+      headers['Cross-Origin-Opener-Policy'] = 'same-origin';
+      headers['Cross-Origin-Resource-Policy'] = 'cross-origin';
+    }
+
     return headers;
   }
 
   private generateCSP(context: SecurityContext): string {
     const directives: CSPDirectives = {
       'default-src': ["'self'"],
-      'script-src': ["'self'", "'unsafe-inline'"], // Limited for VS Code
-      'style-src': ["'self'", "'unsafe-inline'"],
+      'script-src': ["'self'"], // Removed unsafe-inline for better security
+      'style-src': ["'self'"], // Removed unsafe-inline for better security
       'img-src': ["'self'", 'data:', 'vscode-resource:', 'https:'],
       'font-src': ["'self'", 'vscode-resource:', 'https:'],
       'connect-src': ["'self'", 'https:', 'wss:'],
-      'media-src': ["'self'"],
+      'media-src': ["'self'", 'https:'],
       'object-src': ["'none'"],
       'frame-src': ["'none'"],
       'frame-ancestors': ["'none'"],
       'form-action': ["'self'"],
+      'base-uri': ["'self'"],
       'upgrade-insecure-requests': true,
-      'block-all-mixed-content': true
+      'block-all-mixed-content': true,
+      // Additional HTTPS security
+      'require-trusted-types-for': ["'script'"],
+      'trusted-types': ['vscode-policy']
     };
 
     // Add extension-specific CSP rules
@@ -218,11 +252,97 @@ export class SecureHeadersManager {
     return `${token}.${signature}`;
   }
 
+  private rotateTokenSecrets(): void {
+    const secretId = `secret_${Date.now()}`;
+    const secret = randomBytes(32); // Generate strong 256-bit secret
+    const created = Date.now();
+    const expires = created + (this.TOKEN_SECRET_ROTATION_HOURS * 60 * 60 * 1000);
+
+    this.tokenSecrets.set(secretId, {
+      secret,
+      created,
+      expires
+    });
+
+    // Keep only the last 3 secrets for validation of existing tokens
+    if (this.tokenSecrets.size > 3) {
+      const oldestSecret = Array.from(this.tokenSecrets.entries())
+        .sort(([,a], [,b]) => a.created - b.created)[0][0];
+      this.tokenSecrets.delete(oldestSecret);
+    }
+
+    logger.debug('🔄 Token secrets rotated', { secretId });
+  }
+
   private generateSignature(data: string): string {
-    // Simple HMAC for demonstration - use proper crypto in production
-    const crypto = require('crypto');
-    const secret = process.env.SECURITY_TOKEN_SECRET || 'default-secret-key';
-    return crypto.createHmac('sha256', secret).update(data).digest('hex').substring(0, 16);
+    // Use the most recent secret for signing new tokens
+    const currentSecret = Array.from(this.tokenSecrets.values())
+      .sort((a, b) => b.created - a.created)[0];
+
+    if (!currentSecret) {
+      // Fallback to environment variable if no secrets are available
+      const fallbackSecret = process.env['SECURITY_TOKEN_SECRET'];
+      if (!fallbackSecret) {
+        throw new Error('No token secret available for signing');
+      }
+      return createHmac('sha256', fallbackSecret).update(data).digest('hex').substring(0, 16);
+    }
+
+    return createHmac('sha256', currentSecret.secret).update(data).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Constant-time string comparison to prevent timing attacks
+   */
+  private timingSafeEquals(a: string, b: string): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+
+    return result === 0;
+  }
+
+  /**
+   * Timing-safe token verification
+   */
+  private timingSafeTokenVerification(token: string, expectedSignature: string): boolean {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 2) {
+        // Constant-time delay for invalid format
+        this.constantTimeDelay(100);
+        return false;
+      }
+
+      const [_payload, _signature] = parts;
+
+      // Always perform signature verification regardless of format validation
+      const isValidSignature = this.timingSafeEquals(_signature, expectedSignature);
+
+      // Add constant delay to prevent timing attacks
+      this.constantTimeDelay(50);
+
+      return isValidSignature;
+    } catch {
+      // Constant-time delay for errors
+      this.constantTimeDelay(100);
+      return false;
+    }
+  }
+
+  /**
+   * Constant-time delay to prevent timing attacks
+   */
+  private constantTimeDelay(ms: number): void {
+    const start = Date.now();
+    while (Date.now() - start < ms) {
+      // Busy wait to ensure constant time
+    }
   }
 
   private generateRequestId(): string {
@@ -231,22 +351,31 @@ export class SecureHeadersManager {
 
   validateSecurityToken(token: string): { valid: boolean; context?: SecurityContext; error?: string } {
     try {
+      // Always perform timing-safe verification first
       const parts = token.split('.');
       if (parts.length !== 2) {
+        // Constant-time delay for invalid format
+        this.constantTimeDelay(100);
         return { valid: false, error: 'Invalid token format' };
       }
 
-      const [payload, signature] = parts;
-      const expectedSignature = this.generateSignature(payload);
+      const [, _signature] = parts;
 
-      if (signature !== expectedSignature) {
+      // Generate expected signature using the full token for verification
+      const expectedSignature = this.generateSignature(parts[0]);
+
+      // Use timing-safe comparison
+      if (!this.timingSafeTokenVerification(token, expectedSignature)) {
         return { valid: false, error: 'Invalid token signature' };
       }
 
-      const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
+      // Only parse payload after signature verification
+      const decodedPayload = JSON.parse(Buffer.from(parts[0], 'base64').toString());
 
       // Check token expiration (5 minute window)
       if (Date.now() - decodedPayload.timestamp > 5 * 60 * 1000) {
+        // Constant-time delay for expired tokens
+        this.constantTimeDelay(50);
         return { valid: false, error: 'Token expired' };
       }
 
@@ -261,7 +390,11 @@ export class SecureHeadersManager {
       };
 
     } catch (error) {
-      return { valid: false, error: 'Token parsing failed' };
+      const sanitizedError = this.sanitizeErrorMessage(error);
+      logger.warn('⚠️ Token validation failed', { error: sanitizedError });
+      // Constant-time delay for parsing errors
+      this.constantTimeDelay(100);
+      return { valid: false, error: 'Token validation failed' };
     }
   }
 
@@ -404,6 +537,34 @@ export class SecureHeadersManager {
   }
 
   // Health check
+  private sanitizeErrorMessage(error: unknown): string {
+    if (!error) return 'Unknown error';
+
+    if (error instanceof Error) {
+      let message = error.message;
+
+      // Remove file paths
+      message = message.replace(/\/[^\s]+/g, '/[PATH_REDACTED]');
+
+      // Remove stack traces
+      message = message.replace(/at\s+[^\s]+/g, 'at [FUNCTION_REDACTED]');
+
+      // Remove sensitive data patterns
+      message = message.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, '[CARD_REDACTED]');
+      message = message.replace(/\b\d{3}[\s-]?\d{3}[\s-]?\d{4}\b/g, '[SSN_REDACTED]');
+      message = message.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+
+      // Limit error message length
+      if (message.length > 200) {
+        message = message.substring(0, 200) + '...';
+      }
+
+      return message;
+    }
+
+    return 'An unexpected error occurred';
+  }
+
   getHealthStatus(): {
     status: 'healthy' | 'warning' | 'critical';
     activeTokens: number;

@@ -5,9 +5,8 @@
  */
 
 // Comprehensive Security Hardening for VS Code Plugin Integration
-import * as crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
-import { secureHeadersManager, SecurityHeaders } from './secureHeaders.js';
+import { SecurityHeaders } from './secureHeaders.js';
 import { auditTrail } from '../../utils/auditTrail.js';
 
 export interface SecurityHardeningConfig {
@@ -69,7 +68,7 @@ export interface HardenedResponse {
 }
 
 class SecurityHardeningManager {
-  [x: string]: any;
+  [x: string]: unknown;
   private static instance: SecurityHardeningManager;
   private config: SecurityHardeningConfig;
   private violations: SecurityViolation[] = [];
@@ -155,19 +154,34 @@ class SecurityHardeningManager {
       /javascript:/gi,
       /vbscript:/gi,
       /data:text\/html/gi,
+      /on\w+\s*=/gi,
+      /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
+      /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi,
+      /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi,
 
       // Path traversal
       /\.\.[\/\\]/,
       /%2e%2e[\/\\]/i,
+      /\.\.%2f/i,
+      /\.\.%5c/i,
 
       // Command injection
       /[;&|`$()]/,
+      /\|\|/,
+      /&&/,
 
       // Dangerous function calls
       /\beval\s*\(/,
       /\bFunction\s*\(/,
       /\bsetTimeout\s*\(/,
       /\bsetInterval\s*\(/,
+      /\brequire\s*\(/,
+      /\bimport\s*\(/,
+
+      // Prototype pollution
+      /__proto__/,
+      /constructor/,
+      /prototype/,
 
       // Sensitive data patterns
       /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, // Credit cards
@@ -177,7 +191,21 @@ class SecurityHardeningManager {
       // API keys and tokens
       /\bapi[_-]?key\s*[:=]\s*[A-Za-z0-9_-]{20,}\b/i,
       /\btoken\s*[:=]\s*[A-Za-z0-9_-]{20,}\b/i,
-      /\bsecret\s*[:=]\s*[A-Za-z0-9_-]{20,}\b/i
+      /\bsecret\s*[:=]\s*[A-Za-z0-9_-]{20,}\b/i,
+      /\bbearer\s+[A-Za-z0-9_-]{20,}\b/i,
+
+      // NoSQL injection
+      /\$[a-zA-Z_][a-zA-Z0-9_]*/, // MongoDB operators
+      /db\.\w+\./,
+
+      // LDAP injection
+      /\*\)|\(\||\|/,
+      /%28|\%29/, // URL encoded parentheses
+
+      // XML injection
+      /<!ENTITY/i,
+      /<!DOCTYPE/i,
+      /<\?xml/i
     ];
   }
 
@@ -238,9 +266,8 @@ class SecurityHardeningManager {
 
       return { hardened, violations, safe };
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('💥 Security hardening failed', { error: errorMessage });
+    } catch {
+      logger.error('💥 Security hardening failed');
 
       // Create emergency violation
       const emergencyViolation: SecurityViolation = {
@@ -248,7 +275,7 @@ class SecurityHardeningManager {
         timestamp: Date.now(),
         type: 'integrity_violation',
         severity: 'critical',
-        description: `Security hardening failed: ${errorMessage}`,
+        description: 'Security hardening failed: An unexpected error occurred',
         source: 'security_hardening',
         target: 'request_processing',
         mitigation: ['Request blocked due to security hardening failure'],
@@ -302,6 +329,12 @@ class SecurityHardeningManager {
     // Remove null bytes and other dangerous characters
     let sanitized = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
+    // Remove prototype pollution keywords
+    sanitized = sanitized
+      .replace(/__proto__/g, '[PROTO_REMOVED]')
+      .replace(/constructor/g, '[CONSTRUCTOR_REMOVED]')
+      .replace(/prototype/g, '[PROTOTYPE_REMOVED]');
+
     // Limit string length
     if (sanitized.length > 10000) {
       sanitized = sanitized.substring(0, 10000) + '...[TRUNCATED]';
@@ -313,7 +346,16 @@ class SecurityHardeningManager {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;');
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;')
+      .replace(/\\/g, '&#x5C;');
+
+    // Remove dangerous JavaScript patterns
+    sanitized = sanitized
+      .replace(/javascript:/gi, '[JAVASCRIPT_REMOVED]')
+      .replace(/vbscript:/gi, '[VBSCRIPT_REMOVED]')
+      .replace(/data:text\/html/gi, '[DATA_URI_REMOVED]')
+      .replace(/on\w+\s*=/gi, '[EVENT_REMOVED]');
 
     return sanitized;
   }
@@ -499,25 +541,110 @@ class SecurityHardeningManager {
     // const hash = crypto.createHash('sha256').update(dataString).digest('hex');
     // For now, just check for obviously suspicious content
 
-    if (dataString.includes('__proto__') || dataString.includes('constructor')) {
+    if (dataString.includes('__proto__') || dataString.includes('constructor') || dataString.includes('prototype')) {
       violations.push({
         id: `integrity_violation_${Date.now()}`,
         timestamp: Date.now(),
         type: 'integrity_violation',
-        severity: 'high',
+        severity: 'critical',
         description: 'Potential prototype pollution detected',
         source: 'security_hardening',
         target: 'object_integrity',
         mitigation: [
           'Implement object property validation',
           'Use Object.freeze for sensitive objects',
-          'Validate object structure before processing'
+          'Validate object structure before processing',
+          'Reject objects with prototype pollution keywords'
+        ],
+        blocked: true
+      });
+    }
+
+    // Check for circular references that could cause DoS
+    try {
+      JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (this.hasCircularReference(value, new WeakSet())) {
+            throw new Error('Circular reference detected');
+          }
+        }
+        return value;
+      });
+    } catch {
+      violations.push({
+        id: `integrity_violation_${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'integrity_violation',
+        severity: 'high',
+        description: 'Circular reference detected in object structure',
+        source: 'security_hardening',
+        target: 'object_integrity',
+        mitigation: [
+          'Remove circular references from objects',
+          'Use proper serialization methods',
+          'Implement depth limiting'
+        ],
+        blocked: true
+      });
+    }
+
+    // Check for excessively nested objects
+    const maxDepth = this.getMaxDepth(obj);
+    if (maxDepth > 10) {
+      violations.push({
+        id: `integrity_violation_${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'integrity_violation',
+        severity: 'medium',
+        description: `Object nesting too deep: ${maxDepth} levels`,
+        source: 'security_hardening',
+        target: 'object_integrity',
+        mitigation: [
+          'Limit object nesting depth',
+          'Flatten deeply nested structures',
+          'Use iterative processing instead of recursion'
         ],
         blocked: false
       });
     }
 
     return violations;
+  }
+
+  private hasCircularReference(obj: unknown, seen: WeakSet<object>): boolean {
+    if (typeof obj !== 'object' || obj === null) {
+      return false;
+    }
+
+    if (seen.has(obj)) {
+      return true;
+    }
+
+    seen.add(obj);
+
+    for (const value of Object.values(obj)) {
+      if (this.hasCircularReference(value, seen)) {
+        return true;
+      }
+    }
+
+    seen.delete(obj);
+    return false;
+  }
+
+  private getMaxDepth(obj: unknown, currentDepth = 0): number {
+    if (currentDepth > 20) return currentDepth; // Prevent infinite recursion
+
+    if (typeof obj === 'object' && obj !== null) {
+      let maxChildDepth = currentDepth;
+      for (const value of Object.values(obj)) {
+        const childDepth = this.getMaxDepth(value, currentDepth + 1);
+        maxChildDepth = Math.max(maxChildDepth, childDepth);
+      }
+      return maxChildDepth;
+    }
+
+    return currentDepth;
   }
 
   private checkContextSecurity(obj: HardenedRequest, context: SecurityContext): SecurityViolation[] {
@@ -585,7 +712,15 @@ class SecurityHardeningManager {
 
     // Add security headers
     if (context?.isExtension) {
-      const securityHeaders = this.secureHeadersManager.generateSecureHeaders(context);
+      // Import the secureHeadersManager instance
+      const { secureHeadersManager } = await import('./secureHeaders.js');
+      const securityContext = {
+        ...context,
+        isExtension: context.isExtension ?? false,
+        vscodeVersion: context.vscodeVersion ?? 'unknown',
+        workspaceTrust: context.workspaceTrust ?? false
+      };
+      const securityHeaders = secureHeadersManager.generateSecureHeaders(securityContext);
       hardened._securityHeaders = securityHeaders;
     }
 
@@ -867,6 +1002,7 @@ class SecurityHardeningManager {
       issues
     };
   }
+
 
   // Emergency security lockdown
   emergencyLockdown(reason: string): void {
