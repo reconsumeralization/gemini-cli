@@ -160,7 +160,7 @@ class PenetrationTestingManager {
 
   private loadPenetrationTestConfig(): PenetrationTestConfig {
     return {
-      enabled: process.env.PENETRATION_TESTING_ENABLED === 'true',
+      enabled: process.env['PENETRATION_TESTING_ENABLED'] === 'true',
       testTypes: [
         {
           name: 'SQL Injection',
@@ -228,30 +228,30 @@ class PenetrationTestingManager {
         }
       ],
       scope: {
-        includeEndpoints: process.env.TEST_ENDPOINTS?.split(',') || ['/api/*', '/tools/*'],
-        excludeEndpoints: process.env.EXCLUDE_ENDPOINTS?.split(',') || [],
-        includeParameters: process.env.TEST_PARAMETERS?.split(',') || ['query', 'body', 'headers'],
-        excludeParameters: process.env.EXCLUDE_PARAMETERS?.split(',') || [],
-        maxDepth: parseInt(process.env.TEST_MAX_DEPTH || '3'),
-        followRedirects: process.env.TEST_FOLLOW_REDIRECTS !== 'false'
+        includeEndpoints: process.env['TEST_ENDPOINTS']?.split(',') || ['/api/*', '/tools/*'],
+        excludeEndpoints: process.env['EXCLUDE_ENDPOINTS']?.split(',') || [],
+        includeParameters: process.env['TEST_PARAMETERS']?.split(',') || ['query', 'body', 'headers'],
+        excludeParameters: process.env['EXCLUDE_PARAMETERS']?.split(',') || [],
+        maxDepth: parseInt(process.env['TEST_MAX_DEPTH'] || '3'),
+        followRedirects: process.env['TEST_FOLLOW_REDIRECTS'] !== 'false'
       },
       schedule: {
-        enabled: process.env.TEST_SCHEDULE_ENABLED === 'true',
-        frequency: (process.env.TEST_FREQUENCY as TestSchedule['frequency']) || 'weekly',
+        enabled: process.env['TEST_SCHEDULE_ENABLED'] === 'true',
+        frequency: (process.env['TEST_FREQUENCY'] as TestSchedule['frequency']) || 'weekly',
         timeWindow: {
-          start: process.env.TEST_WINDOW_START || '02:00',
-          end: process.env.TEST_WINDOW_END || '06:00'
+          start: process.env['TEST_WINDOW_START'] || '02:00',
+          end: process.env['TEST_WINDOW_END'] || '06:00'
         }
       },
-      intensity: (process.env.TEST_INTENSITY as PenetrationTestConfig['intensity']) || 'medium',
-      maxConcurrentTests: parseInt(process.env.MAX_CONCURRENT_TESTS || '2'),
-      timeout: parseInt(process.env.TEST_TIMEOUT || '300000'), // 5 minutes
+      intensity: (process.env['TEST_INTENSITY'] as PenetrationTestConfig['intensity']) || 'medium',
+      maxConcurrentTests: parseInt(process.env['MAX_CONCURRENT_TESTS'] || '2'),
+      timeout: parseInt(process.env['TEST_TIMEOUT'] || '300000'), // 5 minutes
       reporting: {
-        format: (process.env.REPORT_FORMAT as ReportingConfig['format']) || 'html',
-        includeDetails: process.env.REPORT_INCLUDE_DETAILS !== 'false',
-        includeRemediation: process.env.REPORT_INCLUDE_REMEDIATION !== 'false',
-        notifyOnCompletion: process.env.REPORT_NOTIFY_COMPLETION !== 'false',
-        retentionDays: parseInt(process.env.REPORT_RETENTION_DAYS || '90')
+        format: (process.env['REPORT_FORMAT'] as ReportingConfig['format']) || 'html',
+        includeDetails: process.env['REPORT_INCLUDE_DETAILS'] !== 'false',
+        includeRemediation: process.env['REPORT_INCLUDE_REMEDIATION'] !== 'false',
+        notifyOnCompletion: process.env['REPORT_NOTIFY_COMPLETION'] !== 'false',
+        retentionDays: parseInt(process.env['REPORT_RETENTION_DAYS'] || '90')
       }
     };
   }
@@ -408,10 +408,11 @@ class PenetrationTestingManager {
     this.activeTests.set(testId, test);
 
     // Start the test asynchronously
-    this.runPenetrationTest(test).catch(error => {
-      logger.error('❌ Penetration test failed', { testId, error: error.message });
+    this.runPenetrationTest(test).catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Penetration test failed', { testId, error: errorMessage });
       test.status = 'failed';
-      test.metadata.error = error.message;
+      test.metadata['error'] = errorMessage;
     });
 
     logger.info('🚀 Penetration test started', {
@@ -478,15 +479,16 @@ class PenetrationTestingManager {
         coverage: test.statistics.coverage
       });
 
-    } catch (error) {
+    } catch (error: unknown) {
       test.status = 'failed';
       test.endTime = Date.now();
       test.duration = test.endTime - (test.startTime || 0);
-      test.metadata.error = error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      test.metadata['error'] = errorMessage;
 
       logger.error('❌ Penetration test failed', {
         testId: test.id,
-        error: error.message
+        error: errorMessage
       });
     }
 
@@ -650,8 +652,8 @@ class PenetrationTestingManager {
 
       // Use the intelligent classifier to analyze the payload
       const analysis = await intelligentClassifier.analyzeInput(payload, {
-        source: 'test',
-        userRole: 'tester',
+        source: 'tool',
+        userRole: 'user',
         toolAcl: [],
         conversationId: test.id
       });
@@ -689,16 +691,17 @@ class PenetrationTestingManager {
       }
 
       return null;
-    } catch (error) {
-      logger.warn('⚠️ Injection test failed', { endpoint, payload, error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️ Injection test failed', { endpoint, payload, error: errorMessage });
       return null;
     }
   }
 
   private async testAuthenticationPayload(
-    endpoint: string,
-    payload: string,
-    test: PenetrationTest
+    _endpoint: string,
+    _payload: string,
+    _test: PenetrationTest
   ): Promise<SecurityFinding | null> {
     // Simulate authentication testing
     // In production, this would attempt actual authentication bypass
@@ -706,44 +709,44 @@ class PenetrationTestingManager {
   }
 
   private async testAuthorizationEndpoint(
-    endpoint: string,
-    authTest: any,
-    test: PenetrationTest
+    _endpoint: string,
+    _authTest: Record<string, unknown>,
+    _test: PenetrationTest
   ): Promise<SecurityFinding | null> {
     // Simulate authorization testing
     return null;
   }
 
   private async testDataExposure(
-    endpoint: string,
-    patterns: RegExp[],
-    test: PenetrationTest
+    _endpoint: string,
+    _patterns: RegExp[],
+    _test: PenetrationTest
   ): Promise<SecurityFinding | null> {
     // Simulate data exposure testing
     return null;
   }
 
   private async performConfigurationCheck(
-    check: any,
-    test: PenetrationTest
+    _check: Record<string, unknown>,
+    _test: PenetrationTest
   ): Promise<SecurityFinding[]> {
     // Simulate configuration checking
     return [];
   }
 
   private async performAPICheck(
-    endpoint: string,
-    check: any,
-    test: PenetrationTest
+    _endpoint: string,
+    _check: Record<string, unknown>,
+    _test: PenetrationTest
   ): Promise<SecurityFinding | null> {
     // Simulate API testing
     return null;
   }
 
   private async testFuzzPayload(
-    endpoint: string,
-    payload: string,
-    test: PenetrationTest
+    _endpoint: string,
+    _payload: string,
+    _test: PenetrationTest
   ): Promise<SecurityFinding | null> {
     // Simulate fuzz testing
     return null;
@@ -841,7 +844,12 @@ Recommendations have been provided for remediation and security hardening.
     `.trim();
   }
 
-  private performRiskAssessment(test: PenetrationTest): any {
+  private performRiskAssessment(test: PenetrationTest): {
+    overallScore: number;
+    riskDistribution: Record<string, number>;
+    topRisks: string[];
+    trendAnalysis: string;
+  } {
     const findings = test.findings;
     const riskDistribution: Record<string, number> = {
       critical: findings.filter(f => f.severity === 'critical').length,
@@ -957,8 +965,9 @@ Recommendations have been provided for remediation and security hardening.
       await fs.promises.mkdir(path.dirname(reportPath), { recursive: true });
       await fs.promises.writeFile(reportPath, JSON.stringify(report, null, 2));
       logger.info('💾 Penetration test report saved', { path: reportPath });
-    } catch (error) {
-      logger.error('❌ Failed to save report', { path: reportPath, error: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Failed to save report', { path: reportPath, error: errorMessage });
     }
   }
 

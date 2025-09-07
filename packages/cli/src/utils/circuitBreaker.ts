@@ -47,6 +47,8 @@ class CircuitBreaker {
       state: this.state,
       failures: 0,
       successes: 0,
+      lastFailureTime: undefined,
+      lastSuccessTime: undefined,
       totalRequests: 0,
       totalFailures: 0,
       totalSuccesses: 0,
@@ -123,6 +125,8 @@ class CircuitBreaker {
     const total = this.metrics.totalSuccesses + this.metrics.totalFailures;
     this.metrics.uptimePercentage = total > 0 ?
       (this.metrics.totalSuccesses / total) * 100 : 100;
+    this.metrics.lastFailureTime = this.lastFailureTime;
+    this.metrics.lastSuccessTime = this.lastSuccessTime;
   }
 
   getMetrics(): CircuitBreakerMetrics {

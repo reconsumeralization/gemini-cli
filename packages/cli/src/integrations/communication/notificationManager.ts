@@ -182,7 +182,7 @@ class NotificationManager {
 
 *Detection Time:* {timestamp}
       `.trim(),
-      channel: this.config.alertChannels.medium
+      channel: this.config.alertChannels['medium']
     });
 
     this.templates.set('system_status', {
@@ -194,7 +194,7 @@ class NotificationManager {
 *Details:* {details}
 *Timestamp:* {timestamp}
       `.trim(),
-      channel: this.config.alertChannels.info
+      channel: this.config.alertChannels['info']
     });
 
     this.templates.set('maintenance_notification', {
@@ -209,7 +209,7 @@ class NotificationManager {
 
 *Impact:* {impact}
       `.trim(),
-      channel: this.config.alertChannels.low
+      channel: this.config.alertChannels['low']
     });
   }
 
@@ -381,15 +381,15 @@ class NotificationManager {
     }
   }
 
-  private formatMessageForProvider(provider: NotificationProvider, message: NotificationMessage): any {
+  private formatMessageForProvider(provider: NotificationProvider, message: NotificationMessage): Record<string, unknown> {
     const channel = message.channel || this.config.defaultChannel;
 
     switch (provider.type) {
       case 'slack':
         return {
           channel,
-          username: provider.config.username,
-          icon_emoji: provider.config.iconEmoji,
+          username: provider.config['username'],
+          icon_emoji: provider.config['iconEmoji'],
           attachments: [{
             color: this.getSeverityColor(message.severity),
             title: message.title,
@@ -416,8 +416,8 @@ class NotificationManager {
 
       case 'discord':
         return {
-          username: provider.config.username,
-          avatar_url: provider.config.avatarUrl,
+          username: provider.config['username'],
+          avatar_url: provider.config['avatarUrl'],
           embeds: [{
             color: parseInt(this.getSeverityColor(message.severity), 16),
             title: message.title,
@@ -439,14 +439,14 @@ class NotificationManager {
 
       case 'email':
         return {
-          to: message.recipients || [process.env.DEFAULT_EMAIL_RECIPIENT || 'security@company.com'],
+          to: message.recipients || [process.env['DEFAULT_EMAIL_RECIPIENT'] || 'security@company.com'],
           subject: message.title,
           html: this.formatEmailMessage(message),
-          from: provider.config.fromEmail
+          from: provider.config['fromEmail']
         };
 
       default:
-        return message;
+        return message as unknown as Record<string, unknown>;
     }
   }
 
@@ -488,15 +488,15 @@ class NotificationManager {
     `;
   }
 
-  private async makeProviderRequest(provider: NotificationProvider, payload: any): Promise<void> {
-    const config = provider.config as any;
+  private async makeProviderRequest(provider: NotificationProvider, payload: Record<string, unknown>): Promise<void> {
+    const config = provider.config;
 
     switch (provider.type) {
       case 'slack':
       case 'teams':
       case 'discord':
       case 'webhook':
-        await this.makeWebhookRequest(config.webhookUrl, payload);
+        await this.makeWebhookRequest(config['webhookUrl'] as string, payload);
         break;
 
       case 'email':
@@ -508,7 +508,7 @@ class NotificationManager {
     }
   }
 
-  private async makeWebhookRequest(url: string, payload: any): Promise<void> {
+  private async makeWebhookRequest(url: string, payload: Record<string, unknown>): Promise<void> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
       const options: https.RequestOptions = {
@@ -546,13 +546,13 @@ class NotificationManager {
     });
   }
 
-  private async sendEmail(config: any, payload: any): Promise<void> {
+  private async sendEmail(config: Record<string, unknown>, payload: Record<string, unknown>): Promise<void> {
     // Placeholder for email sending implementation
     // In production, this would use nodemailer or similar
     logger.info('📧 Email notification would be sent', {
-      to: payload.to,
-      subject: payload.subject,
-      smtpHost: config.smtpHost
+      to: payload['to'],
+      subject: payload['subject'],
+      smtpHost: config['smtpHost']
     });
   }
 

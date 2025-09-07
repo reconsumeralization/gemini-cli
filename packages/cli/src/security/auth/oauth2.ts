@@ -76,7 +76,7 @@ class OAuth2AuthManager {
   private sessions: Map<string, UserSession> = new Map();
   private tokens: Map<string, TokenInfo> = new Map();
   private rbacPolicy: RBACPolicy;
-  private sessionCleanupInterval: NodeJS.Timeout;
+  private sessionCleanupInterval!: NodeJS.Timeout;
 
   static getInstance(): OAuth2AuthManager {
     if (!OAuth2AuthManager.instance) {
@@ -94,11 +94,11 @@ class OAuth2AuthManager {
   private loadOAuthConfig(): OAuth2Config {
     // Load from environment variables or config file
     return {
-      clientId: process.env.OAUTH_CLIENT_ID || 'gemini-mcp-client',
-      clientSecret: process.env.OAUTH_CLIENT_SECRET || crypto.randomBytes(32).toString('hex'),
-      authorizationEndpoint: process.env.OAUTH_AUTH_ENDPOINT || 'https://accounts.google.com/oauth/authorize',
-      tokenEndpoint: process.env.OAUTH_TOKEN_ENDPOINT || 'https://oauth2.googleapis.com/token',
-      redirectUri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3000/oauth/callback',
+      clientId: process.env['OAUTH_CLIENT_ID'] || 'gemini-mcp-client',
+      clientSecret: process.env['OAUTH_CLIENT_SECRET'] || crypto.randomBytes(32).toString('hex'),
+      authorizationEndpoint: process.env['OAUTH_AUTH_ENDPOINT'] || 'https://accounts.google.com/oauth/authorize',
+      tokenEndpoint: process.env['OAUTH_TOKEN_ENDPOINT'] || 'https://oauth2.googleapis.com/token',
+      redirectUri: process.env['OAUTH_REDIRECT_URI'] || 'http://localhost:3000/oauth/callback',
       scopes: ['openid', 'profile', 'email', 'mcp:read', 'mcp:write', 'mcp:admin'],
       grantTypes: ['authorization_code', 'refresh_token', 'client_credentials']
     };
@@ -212,7 +212,7 @@ class OAuth2AuthManager {
     }
   }
 
-  private async exchangeCodeForTokens(code: string): Promise<any> {
+  private async exchangeCodeForTokens(_code: string): Promise<Record<string, unknown>> {
     // In production, this would make an actual HTTP request to the OAuth provider
     // For now, simulate the token exchange
     return {
@@ -224,7 +224,7 @@ class OAuth2AuthManager {
     };
   }
 
-  private async validateAndDecodeToken(token: string): Promise<Omit<TokenInfo, 'accessToken' | 'refreshToken' | 'tokenType' | 'expiresIn' | 'expiresAt'>> {
+  private async validateAndDecodeToken(_token: string): Promise<Omit<TokenInfo, 'accessToken' | 'refreshToken' | 'tokenType' | 'expiresIn' | 'expiresAt'>> {
     // In production, this would validate the JWT token and extract claims
     // For now, simulate token validation
     return {
@@ -236,13 +236,13 @@ class OAuth2AuthManager {
     };
   }
 
-  private createSession(tokenInfo: any): UserSession {
+  private createSession(tokenInfo: Record<string, unknown>): UserSession {
     const session: UserSession = {
       sessionId: crypto.randomBytes(16).toString('hex'),
-      userId: tokenInfo.userId,
-      clientId: tokenInfo.clientId,
-      roles: tokenInfo.roles,
-      permissions: tokenInfo.permissions,
+      userId: tokenInfo['userId'] as string,
+      clientId: tokenInfo['clientId'] as string,
+      roles: tokenInfo['roles'] as string[],
+      permissions: tokenInfo['permissions'] as string[],
       createdAt: Date.now(),
       lastActivity: Date.now(),
       expiresAt: Date.now() + (3600 * 1000), // 1 hour

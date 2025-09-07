@@ -8,7 +8,7 @@
 import * as https from 'https';
 import * as http from 'http';
 import { logger } from '../../utils/logger.js';
-import { AnomalyAlert } from '../../security/anomaly/anomalyDetector.js';
+import type { AnomalyAlert } from '../../security/anomaly/anomalyDetector.js';
 
 export interface TicketingConfig {
   enabled: boolean;
@@ -81,15 +81,15 @@ class TicketingIntegrationManager {
 
   private loadTicketingConfig(): TicketingConfig {
     return {
-      enabled: process.env.TICKETING_ENABLED === 'true',
-      provider: (process.env.TICKETING_PROVIDER as TicketingConfig['provider']) || 'jira',
-      endpoint: process.env.TICKETING_ENDPOINT || '',
-      apiKey: process.env.TICKETING_API_KEY,
-      username: process.env.TICKETING_USERNAME,
-      password: process.env.TICKETING_PASSWORD,
-      projectKey: process.env.TICKETING_PROJECT_KEY || 'SEC',
-      issueType: process.env.TICKETING_ISSUE_TYPE || 'Security Incident',
-      customFields: this.parseCustomFields(process.env.TICKETING_CUSTOM_FIELDS),
+      enabled: process.env['TICKETING_ENABLED'] === 'true',
+      provider: (process.env['TICKETING_PROVIDER'] as TicketingConfig['provider']) || 'jira',
+      endpoint: process.env['TICKETING_ENDPOINT'] || '',
+      apiKey: process.env['TICKETING_API_KEY'],
+      username: process.env['TICKETING_USERNAME'],
+      password: process.env['TICKETING_PASSWORD'],
+      projectKey: process.env['TICKETING_PROJECT_KEY'] || 'SEC',
+      issueType: process.env['TICKETING_ISSUE_TYPE'] || 'Security Incident',
+      customFields: this.parseCustomFields(process.env['TICKETING_CUSTOM_FIELDS']),
       priorityMapping: {
         'low': 'Low',
         'medium': 'Medium',
@@ -97,8 +97,8 @@ class TicketingIntegrationManager {
         'critical': 'Highest'
       },
       labels: ['security', 'automated', 'mcp-generated'],
-      autoAssign: process.env.TICKETING_AUTO_ASSIGN === 'true',
-      assignee: process.env.TICKETING_ASSIGNEE
+      autoAssign: process.env['TICKETING_AUTO_ASSIGN'] === 'true',
+      assignee: process.env['TICKETING_ASSIGNEE']
     };
   }
 
@@ -237,7 +237,7 @@ class TicketingIntegrationManager {
     return this.parseTicketResponse(response);
   }
 
-  private formatTicketForProvider(request: CreateTicketRequest): any {
+  private formatTicketForProvider(request: CreateTicketRequest): Record<string, unknown> {
     switch (this.config.provider) {
       case 'jira':
         return {
@@ -278,7 +278,7 @@ class TicketingIntegrationManager {
         };
 
       default:
-        return request;
+        return request as unknown as Record<string, unknown>;
     }
   }
 
@@ -301,61 +301,63 @@ class TicketingIntegrationManager {
     }));
   }
 
-  private parseTicketResponse(response: any): Ticket {
+  private parseTicketResponse(response: Record<string, unknown>): Ticket {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = response as any;
     switch (this.config.provider) {
       case 'jira':
         return {
-          id: response.id,
-          key: response.key,
-          title: response.fields.summary,
-          description: response.fields.description,
-          status: this.mapJiraStatus(response.fields.status?.name),
-          priority: this.mapJiraPriority(response.fields.priority?.name),
-          assignee: response.fields.assignee?.displayName,
+          id: res['id'] as string,
+          key: res['key'] as string,
+          title: res['fields']?.['summary'] as string || '',
+          description: res['fields']?.['description'] as string || '',
+          status: this.mapJiraStatus(res['fields']?.['status']?.['name'] as string),
+          priority: this.mapJiraPriority(res['fields']?.['priority']?.['name'] as string),
+          assignee: res['fields']?.['assignee']?.['displayName'] as string,
           reporter: 'gemini-mcp',
-          createdAt: response.fields.created,
-          updatedAt: response.fields.updated,
-          labels: response.fields.labels || [],
+          createdAt: res['fields']?.['created'] as string || '',
+          updatedAt: res['fields']?.['updated'] as string || '',
+          labels: (res['fields']?.['labels'] as string[]) || [],
           comments: [],
           metadata: {}
         };
 
       case 'servicenow':
         return {
-          id: response.sys_id,
-          key: response.number,
-          title: response.short_description,
-          description: response.description,
-          status: this.mapServiceNowStatus(response.state),
-          priority: this.mapServiceNowPriority(response.priority),
-          assignee: response.assigned_to,
+          id: res['sys_id'] as string,
+          key: res['number'] as string,
+          title: res['short_description'] as string || '',
+          description: res['description'] as string || '',
+          status: this.mapServiceNowStatus(res['state'] as string),
+          priority: this.mapServiceNowPriority(res['priority'] as string),
+          assignee: res['assigned_to'] as string,
           reporter: 'gemini-mcp',
-          createdAt: response.sys_created_on,
-          updatedAt: response.sys_updated_on,
-          labels: response.labels?.split(',') || [],
+          createdAt: res['sys_created_on'] as string || '',
+          updatedAt: res['sys_updated_on'] as string || '',
+          labels: (res['labels'] as string)?.split(',') || [],
           comments: [],
           metadata: {}
         };
 
       case 'zendesk':
         return {
-          id: response.ticket.id.toString(),
-          key: response.ticket.id.toString(),
-          title: response.ticket.subject,
-          description: response.ticket.description,
-          status: this.mapZendeskStatus(response.ticket.status),
-          priority: response.ticket.priority,
-          assignee: response.ticket.assignee_id?.toString(),
+          id: String(res['ticket']?.['id'] || ''),
+          key: String(res['ticket']?.['id'] || ''),
+          title: res['ticket']?.['subject'] as string || '',
+          description: res['ticket']?.['description'] as string || '',
+          status: this.mapZendeskStatus(res['ticket']?.['status'] as string),
+          priority: (res['ticket']?.['priority'] as Ticket['priority']) || 'medium',
+          assignee: String(res['ticket']?.['assignee_id'] || ''),
           reporter: 'gemini-mcp',
-          createdAt: response.ticket.created_at,
-          updatedAt: response.ticket.updated_at,
-          labels: response.ticket.tags || [],
+          createdAt: res['ticket']?.['created_at'] as string || '',
+          updatedAt: res['ticket']?.['updated_at'] as string || '',
+          labels: (res['ticket']?.['tags'] as string[]) || [],
           comments: [],
           metadata: {}
         };
 
       default:
-        return response;
+        return response as unknown as Ticket;
     }
   }
 
@@ -507,7 +509,7 @@ ${Object.entries(metrics).map(([key, value]) => `- ${key}: ${value}`).join('\n')
     }
   }
 
-  private formatCommentForProvider(comment: string, isInternal: boolean): any {
+  private formatCommentForProvider(comment: string, isInternal: boolean): Record<string, unknown> {
     switch (this.config.provider) {
       case 'jira':
         return {
@@ -549,7 +551,7 @@ ${Object.entries(metrics).map(([key, value]) => `- ${key}: ${value}`).join('\n')
     }
   }
 
-  private formatStatusUpdateForProvider(status: Ticket['status']): any {
+  private formatStatusUpdateForProvider(status: Ticket['status']): Record<string, unknown> {
     switch (this.config.provider) {
       case 'jira':
         return {
@@ -605,7 +607,7 @@ ${Object.entries(metrics).map(([key, value]) => `- ${key}: ${value}`).join('\n')
     return statusMapping[status] || 'open';
   }
 
-  private async makeTicketingRequest(method: string, path: string, payload?: any): Promise<any> {
+  private async makeTicketingRequest(method: string, path: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.config.endpoint);
       const options: https.RequestOptions = {
@@ -630,9 +632,9 @@ ${Object.entries(metrics).map(([key, value]) => `- ${key}: ${value}`).join('\n')
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             try {
               const parsedData = data ? JSON.parse(data) : {};
-              resolve(parsedData);
-            } catch (parseError) {
-              resolve(data);
+              resolve(parsedData as Record<string, unknown>);
+            } catch {
+              resolve({ rawResponse: data } as Record<string, unknown>);
             }
           } else {
             reject(new Error(`Ticketing request failed: ${res.statusCode} ${data}`));
@@ -685,7 +687,7 @@ ${Object.entries(metrics).map(([key, value]) => `- ${key}: ${value}`).join('\n')
       // Implementation would vary by provider
       const query = this.buildStatusQuery(status);
       const response = await this.makeTicketingRequest('GET', `/issues?${query}&limit=${limit}`);
-      return Array.isArray(response.issues) ? response.issues.map(this.parseTicketResponse) : [];
+      return Array.isArray(response['issues']) ? response['issues'].map(this.parseTicketResponse) : [];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('❌ Failed to get tickets by status', { status, error: errorMessage });
