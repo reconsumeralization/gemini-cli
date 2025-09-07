@@ -8,7 +8,7 @@
 import * as crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 
-export interface CacheEntry<T = any> {
+export interface CacheEntry<T = unknown> {
   key: string;
   value: T;
   timestamp: number;
@@ -46,7 +46,7 @@ class CacheManager {
   private cache: Map<string, CacheEntry> = new Map();
   private config: CacheConfig;
   private metrics: CacheMetrics;
-  private cleanupInterval: NodeJS.Timeout;
+  private cleanupInterval?: NodeJS.Timeout;
   private accessTimes: number[] = [];
 
   // Specialized caches for different data types
@@ -70,11 +70,11 @@ class CacheManager {
 
   private loadCacheConfig(): CacheConfig {
     return {
-      maxSize: parseInt(process.env.CACHE_MAX_SIZE || '1073741824'), // 1GB default
-      defaultTTL: parseInt(process.env.CACHE_DEFAULT_TTL || '3600000'), // 1 hour default
-      cleanupInterval: parseInt(process.env.CACHE_CLEANUP_INTERVAL || '300000'), // 5 minutes
-      compressionThreshold: parseInt(process.env.CACHE_COMPRESSION_THRESHOLD || '10240'), // 10KB
-      enableMetrics: process.env.CACHE_ENABLE_METRICS !== 'false'
+      maxSize: parseInt(process.env['CACHE_MAX_SIZE'] || '1073741824'), // 1GB default
+      defaultTTL: parseInt(process.env['CACHE_DEFAULT_TTL'] || '3600000'), // 1 hour default
+      cleanupInterval: parseInt(process.env['CACHE_CLEANUP_INTERVAL'] || '300000'), // 5 minutes
+      compressionThreshold: parseInt(process.env['CACHE_COMPRESSION_THRESHOLD'] || '10240'), // 10KB
+      enableMetrics: process.env['CACHE_ENABLE_METRICS'] !== 'false'
     };
   }
 
@@ -125,7 +125,8 @@ class CacheManager {
 
     logger.debug('📋 Cache hit', { key, namespace, accessTime });
 
-    return this.decompressIfNeeded(entry.value);
+    const decompressedValue = this.decompressIfNeeded(entry.value);
+    return decompressedValue as T | null;
   }
 
   async set<T>(
@@ -146,9 +147,10 @@ class CacheManager {
     const entrySize = this.calculateEntrySize(value);
     await this.ensureCapacity(entrySize, cache);
 
+    const compressedValue = this.compressIfNeeded(value);
     const entry: CacheEntry<T> = {
       key,
-      value: this.compressIfNeeded(value),
+      value: compressedValue as T,
       timestamp: Date.now(),
       ttl,
       accessCount: 0,
@@ -234,7 +236,7 @@ class CacheManager {
   async cacheMCPResponse(
     toolName: string,
     params: Record<string, unknown>,
-    response: any,
+    response: unknown,
     ttl?: number
   ): Promise<void> {
     const cacheKey = this.generateMCPResponseKey(toolName, params);
@@ -249,7 +251,7 @@ class CacheManager {
   async getMCPResponse(
     toolName: string,
     params: Record<string, unknown>
-  ): Promise<any | null> {
+  ): Promise<unknown | null> {
     const cacheKey = this.generateMCPResponseKey(toolName, params);
     return this.get(cacheKey, 'response');
   }
@@ -257,7 +259,7 @@ class CacheManager {
   async cacheAnalyticsReport(
     reportType: string,
     timeRange: { start: string; end: string },
-    report: any
+    report: unknown
   ): Promise<void> {
     const cacheKey = `analytics_${reportType}_${timeRange.start}_${timeRange.end}`;
     await this.set(cacheKey, report, {
@@ -271,14 +273,14 @@ class CacheManager {
   async getAnalyticsReport(
     reportType: string,
     timeRange: { start: string; end: string }
-  ): Promise<any | null> {
+  ): Promise<unknown | null> {
     const cacheKey = `analytics_${reportType}_${timeRange.start}_${timeRange.end}`;
     return this.get(cacheKey, 'analytics');
   }
 
   async cacheSecurityAnalysis(
     input: string,
-    analysis: any,
+    analysis: unknown,
     ttl?: number
   ): Promise<void> {
     const cacheKey = crypto.createHash('sha256').update(input).digest('hex');
@@ -290,15 +292,15 @@ class CacheManager {
     });
   }
 
-  async getSecurityAnalysis(input: string): Promise<any | null> {
+  async getSecurityAnalysis(input: string): Promise<unknown | null> {
     const cacheKey = crypto.createHash('sha256').update(input).digest('hex');
     return this.get(cacheKey, 'security');
   }
 
   async cacheMLPrediction(
     modelId: string,
-    input: any,
-    prediction: any
+    input: unknown,
+    prediction: unknown
   ): Promise<void> {
     const cacheKey = `ml_${modelId}_${JSON.stringify(input)}`;
     await this.set(cacheKey, prediction, {
@@ -309,7 +311,7 @@ class CacheManager {
     });
   }
 
-  async getMLPrediction(modelId: string, input: any): Promise<any | null> {
+  async getMLPrediction(modelId: string, input: unknown): Promise<unknown | null> {
     const cacheKey = `ml_${modelId}_${JSON.stringify(input)}`;
     return this.get(cacheKey, 'ml');
   }
@@ -345,13 +347,13 @@ class CacheManager {
     }
   }
 
-  private calculateEntrySize(value: any): number {
+  private calculateEntrySize(value: unknown): number {
     // Rough estimation of memory usage
     const jsonString = JSON.stringify(value);
     return Buffer.byteLength(jsonString, 'utf8');
   }
 
-  private compressIfNeeded(value: any): any {
+  private compressIfNeeded(value: unknown): unknown {
     // Simple compression simulation - in production, use actual compression
     const size = this.calculateEntrySize(value);
     if (size > this.config.compressionThreshold) {
@@ -363,11 +365,21 @@ class CacheManager {
     return value;
   }
 
-  private decompressIfNeeded(value: any): any {
-    if (value && typeof value === 'object' && value._compressed) {
-      return JSON.parse(Buffer.from(value.data, 'base64').toString());
+  private decompressIfNeeded(value: unknown): unknown {
+    if (this.isCompressedValue(value)) {
+      return JSON.parse(Buffer.from((value as { data: string }).data, 'base64').toString());
     }
     return value;
+  }
+
+  private isCompressedValue(value: unknown): value is { _compressed: boolean; data: string } {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      '_compressed' in value &&
+      'data' in value &&
+      typeof (value as Record<string, unknown>)['data'] === 'string'
+    );
   }
 
   private recordHit(): void {
@@ -415,6 +427,13 @@ class CacheManager {
     }, this.config.cleanupInterval);
   }
 
+  stopCleanupProcess(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+  }
+
   private performCleanup(): void {
     const now = Date.now();
     let cleanedCount = 0;
@@ -437,7 +456,7 @@ class CacheManager {
   }
 
   // Advanced cache operations
-  async warmCache(cacheKey: string, fetchFunction: () => Promise<any>, namespace: string = 'default'): Promise<void> {
+  async warmCache(cacheKey: string, fetchFunction: () => Promise<unknown>, namespace: string = 'default'): Promise<void> {
     try {
       const existing = await this.get(cacheKey, namespace);
       if (!existing) {
@@ -461,7 +480,8 @@ class CacheManager {
         return { type: 'security', data: 'recent' };
       }, 'analytics');
     } catch (error) {
-      logger.warn('⚠️ Failed to preload analytics cache', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️ Failed to preload analytics cache', { error: errorMessage });
     }
   }
 
@@ -537,7 +557,7 @@ class CacheManager {
 
     if (hitRatePercent < 70) {
       issues.push(`Low cache hit rate: ${hitRatePercent.toFixed(1)}%`);
-      status = status === 'critical' ? 'critical' : 'warning';
+      status = status === 'warning' ? 'warning' : 'warning';
     }
 
     if (this.metrics.evictionCount > 1000) {
