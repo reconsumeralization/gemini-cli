@@ -76,12 +76,11 @@ class AnomalyDetector {
   private alerts: AnomalyAlert[] = [];
   private detectionRules: DetectionRule[] = [];
   private baselineMetrics: Map<string, number[]> = new Map();
-  private monitoringInterval: NodeJS.Timeout;
+  private _monitoringInterval: NodeJS.Timeout | undefined;
   private alertCooldowns: Map<string, number> = new Map();
 
   // Statistical thresholds
   private readonly Z_SCORE_THRESHOLD = 3.0;
-  private readonly CHANGE_PERCENT_THRESHOLD = 50;
   private readonly MIN_BASELINE_SAMPLES = 100;
 
   static getInstance(): AnomalyDetector {
@@ -235,17 +234,26 @@ class AnomalyDetector {
         logger.info('📊 No existing baseline data found, will establish during monitoring');
       }
     } catch (error) {
-      logger.warn('⚠️ Failed to load baseline data', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn('⚠️ Failed to load baseline data', { error: errorMessage });
     }
   }
 
   private startMonitoring(): void {
     // Monitor every 30 seconds
-    this.monitoringInterval = setInterval(() => {
+    this._monitoringInterval = setInterval(() => {
       this.performMonitoring();
     }, 30000);
 
     logger.info('🔍 Started anomaly monitoring');
+  }
+
+  public stopMonitoring(): void {
+    if (this._monitoringInterval) {
+      clearInterval(this._monitoringInterval);
+      this._monitoringInterval = undefined;
+      logger.info('⏹️ Stopped anomaly monitoring');
+    }
   }
 
   private async performMonitoring(): Promise<void> {
@@ -287,7 +295,6 @@ class AnomalyDetector {
 
   private calculateRequestRate(): number {
     // Calculate requests per minute over the last 5 minutes
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     const recentEvents = dataCollector.getStats().totalEvents; // This is a simplification
     return recentEvents / 5; // requests per minute
   }
@@ -407,7 +414,7 @@ class AnomalyDetector {
     return stdDev > 0 ? Math.abs(currentValue - mean) / stdDev : 0;
   }
 
-  private generateRecommendations(rule: DetectionRule, metrics: AnomalyMetrics): string[] {
+  private generateRecommendations(rule: DetectionRule, _metrics: AnomalyMetrics): string[] {
     const recommendations: string[] = [];
 
     switch (rule.id) {
@@ -468,14 +475,16 @@ class AnomalyDetector {
   private async logAnomalyToFile(alert: AnomalyAlert): Promise<void> {
     try {
       const logPath = path.join(process.cwd(), 'anomaly-alerts.log');
+      const { timestamp, ...alertWithoutTimestamp } = alert;
       const logEntry = JSON.stringify({
-        timestamp: new Date(alert.timestamp).toISOString(),
-        ...alert
+        timestamp: new Date(timestamp).toISOString(),
+        ...alertWithoutTimestamp
       }) + '\n';
 
       fs.appendFileSync(logPath, logEntry);
     } catch (error) {
-      logger.error('❌ Failed to log anomaly', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('❌ Failed to log anomaly', { error: errorMessage });
     }
   }
 
@@ -511,7 +520,8 @@ class AnomalyDetector {
       const baselineData = Object.fromEntries(this.baselineMetrics);
       fs.writeFileSync(baselinePath, JSON.stringify(baselineData, null, 2));
     } catch (error) {
-      logger.warn('⚠️ Failed to save baseline data', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : String(error as unknown);
+      logger.warn('⚠️ Failed to save baseline data', { error: errorMessage });
     }
   }
 
