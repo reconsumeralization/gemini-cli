@@ -10,7 +10,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
-import { ValidationSchema, validatorRegistry } from '../utils/dataValidator.js';
+import { validatorRegistry } from '../utils/dataValidator.js';
+import type { ValidationSchema } from '../utils/dataValidator.js';
 
 export interface ConfigValidationRule {
   path: string;

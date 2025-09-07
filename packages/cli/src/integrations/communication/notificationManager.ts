@@ -8,7 +8,7 @@
 import * as https from 'https';
 import * as http from 'http';
 import { logger } from '../../utils/logger.js';
-import { AnomalyAlert } from '../../security/anomaly/anomalyDetector.js';
+import type { AnomalyAlert } from '../../security/anomaly/anomalyDetector.js';
 
 export interface NotificationConfig {
   enabled: boolean;
@@ -72,74 +72,74 @@ class NotificationManager {
     const providers: NotificationProvider[] = [];
 
     // Slack configuration
-    if (process.env.SLACK_WEBHOOK_URL) {
+    if (process.env['SLACK_WEBHOOK_URL']) {
       providers.push({
         name: 'slack',
         type: 'slack',
         enabled: true,
         config: {
-          webhookUrl: process.env.SLACK_WEBHOOK_URL,
-          username: process.env.SLACK_USERNAME || 'Gemini MCP',
-          iconEmoji: process.env.SLACK_ICON_EMOJI || ':shield:'
+          webhookUrl: process.env['SLACK_WEBHOOK_URL'],
+          username: process.env['SLACK_USERNAME'] || 'Gemini MCP',
+          iconEmoji: process.env['SLACK_ICON_EMOJI'] || ':shield:'
         }
       });
     }
 
     // Teams configuration
-    if (process.env.TEAMS_WEBHOOK_URL) {
+    if (process.env['TEAMS_WEBHOOK_URL']) {
       providers.push({
         name: 'teams',
         type: 'teams',
         enabled: true,
         config: {
-          webhookUrl: process.env.TEAMS_WEBHOOK_URL
+          webhookUrl: process.env['TEAMS_WEBHOOK_URL']
         }
       });
     }
 
     // Discord configuration
-    if (process.env.DISCORD_WEBHOOK_URL) {
+    if (process.env['DISCORD_WEBHOOK_URL']) {
       providers.push({
         name: 'discord',
         type: 'discord',
         enabled: true,
         config: {
-          webhookUrl: process.env.DISCORD_WEBHOOK_URL,
-          username: process.env.DISCORD_USERNAME || 'Gemini MCP',
-          avatarUrl: process.env.DISCORD_AVATAR_URL
+          webhookUrl: process.env['DISCORD_WEBHOOK_URL'],
+          username: process.env['DISCORD_USERNAME'] || 'Gemini MCP',
+          avatarUrl: process.env['DISCORD_AVATAR_URL']
         }
       });
     }
 
     // Email configuration (placeholder)
-    if (process.env.SMTP_HOST) {
+    if (process.env['SMTP_HOST']) {
       providers.push({
         name: 'email',
         type: 'email',
         enabled: true,
         config: {
-          smtpHost: process.env.SMTP_HOST,
-          smtpPort: parseInt(process.env.SMTP_PORT || '587'),
-          smtpUser: process.env.SMTP_USER,
-          smtpPass: process.env.SMTP_PASS,
-          fromEmail: process.env.FROM_EMAIL || 'mcp@security.local'
+          smtpHost: process.env['SMTP_HOST'],
+          smtpPort: parseInt(process.env['SMTP_PORT'] || '587'),
+          smtpUser: process.env['SMTP_USER'],
+          smtpPass: process.env['SMTP_PASS'],
+          fromEmail: process.env['FROM_EMAIL'] || 'mcp@security.local'
         }
       });
     }
 
     return {
-      enabled: process.env.NOTIFICATIONS_ENABLED === 'true',
+      enabled: process.env['NOTIFICATIONS_ENABLED'] === 'true',
       providers,
-      defaultChannel: process.env.DEFAULT_NOTIFICATION_CHANNEL || '#security-alerts',
+      defaultChannel: process.env['DEFAULT_NOTIFICATION_CHANNEL'] || '#security-alerts',
       alertChannels: {
-        'low': process.env.LOW_SEVERITY_CHANNEL || '#security-info',
-        'medium': process.env.MEDIUM_SEVERITY_CHANNEL || '#security-warnings',
-        'high': process.env.HIGH_SEVERITY_CHANNEL || '#security-alerts',
-        'critical': process.env.CRITICAL_SEVERITY_CHANNEL || '#security-emergency',
-        'info': process.env.INFO_CHANNEL || '#security-info'
+        'low': process.env['LOW_SEVERITY_CHANNEL'] || '#security-info',
+        'medium': process.env['MEDIUM_SEVERITY_CHANNEL'] || '#security-warnings',
+        'high': process.env['HIGH_SEVERITY_CHANNEL'] || '#security-alerts',
+        'critical': process.env['CRITICAL_SEVERITY_CHANNEL'] || '#security-emergency',
+        'info': process.env['INFO_CHANNEL'] || '#security-info'
       },
-      retryAttempts: parseInt(process.env.NOTIFICATION_RETRY_ATTEMPTS || '3'),
-      retryDelay: parseInt(process.env.NOTIFICATION_RETRY_DELAY || '5000')
+      retryAttempts: parseInt(process.env['NOTIFICATION_RETRY_ATTEMPTS'] || '3'),
+      retryDelay: parseInt(process.env['NOTIFICATION_RETRY_DELAY'] || '5000')
     };
   }
 
@@ -168,7 +168,7 @@ class NotificationManager {
 
 *Detection Time:* {timestamp}
       `.trim(),
-      channel: this.config.alertChannels.high
+      channel: this.config.alertChannels['high']
     });
 
     this.templates.set('performance_issue', {

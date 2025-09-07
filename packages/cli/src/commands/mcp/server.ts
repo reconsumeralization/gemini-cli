@@ -22,7 +22,8 @@ import { fileURLToPath } from 'url';
 import type { GuardDecision, ServerOptions } from '../../security/types.js';
 import { secureVSCodeBridge, type VSCodeMessage, type VSCodeSecurityContext } from '../../security/vscode/secureBridge.js';
 import { rateLimiterRegistry } from '../../utils/rateLimiter.js';
-import { validatorRegistry, createMCPRequestValidator, createSecurityValidator, createAPIToolValidator, ValidationSchema, ValidationRule } from '../../utils/dataValidator.js';
+import { validatorRegistry, createMCPRequestValidator, createSecurityValidator, createAPIToolValidator } from '../../utils/dataValidator.js';
+import type { ValidationSchema, ValidationRule } from '../../utils/dataValidator.js';
 import { cacheManager } from '../../cache/cacheManager.js';
 import { configManager } from '../../config/configManager.js';
 
