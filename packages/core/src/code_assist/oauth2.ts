@@ -26,6 +26,33 @@ import { Storage } from '../config/storage.js';
 
 const userAccountManager = new UserAccountManager();
 
+/**
+ * Validates that cached credentials are associated with the expected project context.
+ * This prevents authentication bypass via project ID manipulation.
+ */
+function validateProjectContext(credentials: Record<string, unknown>, expectedProject: string): boolean {
+  if (!expectedProject) {
+    return true; // No project specified, allow loading
+  }
+
+  // Check if credentials contain project information
+  const credProject = credentials['project_id'] || credentials['audience'] || credentials['target_audience'];
+  
+  // If no project info in credentials, we can't validate - be conservative and reject
+  if (!credProject) {
+    console.warn('No project context found in cached credentials');
+    return false;
+  }
+
+  // Validate project matches expected project
+  const isValid = credProject === expectedProject;
+  if (!isValid) {
+    console.warn(`Project context mismatch: expected ${expectedProject}, found ${credProject}`);
+  }
+
+  return isValid;
+}
+
 //  OAuth Client ID used to initiate OAuth2Client class.
 const OAUTH_CLIENT_ID =
   '681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com';
@@ -79,9 +106,17 @@ async function initOauthClient(
     process.env['GOOGLE_GENAI_USE_GCA'] &&
     process.env['GOOGLE_CLOUD_ACCESS_TOKEN']
   ) {
-    client.setCredentials({
+    const credentials = {
       access_token: process.env['GOOGLE_CLOUD_ACCESS_TOKEN'],
-    });
+    };
+    
+    // SECURITY FIX: Include project context in GCP credentials
+    const projectId = process.env['GOOGLE_CLOUD_PROJECT'];
+    if (projectId) {
+      (credentials as Record<string, unknown>)['project_id'] = projectId;
+    }
+    
+    client.setCredentials(credentials);
     await fetchAndCacheUserInfo(client);
     return client;
   }
@@ -211,6 +246,55 @@ export async function getOauthClient(
     oauthClientPromises.set(authType, initOauthClient(authType, config));
   }
   return oauthClientPromises.get(authType)!;
+}
+
+/**
+ * SECURITY ENHANCED: Get OAuth client with project access validation.
+ * This should be used instead of getOauthClient for secure authentication.
+ */
+export async function getOauthClientWithProjectValidation(
+  authType: AuthType,
+  config: Config,
+): Promise<OAuth2Client> {
+  const client = await getOauthClient(authType, config);
+  
+  // Validate project access after authentication
+  const projectId = process.env['GOOGLE_CLOUD_PROJECT'];
+  if (projectId) {
+    try {
+      const { token } = await client.getAccessToken();
+      if (token) {
+        // Validate project access by calling Cloud Resource Manager API
+        const response = await fetch(
+          `https://cloudresourcemanager.googleapis.com/v1/projects/${projectId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        if (!response.ok) {
+          console.error(`❌ Authentication failed: No access to project ${projectId} (${response.status})`);
+          throw new Error(`No access to project: ${projectId}`);
+        }
+
+        const project = await response.json();
+        if (!project || project.lifecycleState !== 'ACTIVE') {
+          console.error(`❌ Authentication failed: Project ${projectId} is not active`);
+          throw new Error(`Project ${projectId} is not active`);
+        }
+
+        console.log(`✓ Validated access to project: ${projectId}`);
+      }
+    } catch (error) {
+      console.error('❌ Project access validation failed:', error);
+      throw new Error('Project access validation failed');
+    }
+  }
+
+  return client;
 }
 
 async function authWithUserCode(client: OAuth2Client): Promise<boolean> {
@@ -427,7 +511,16 @@ async function loadCachedCredentials(client: OAuth2Client): Promise<boolean> {
   for (const keyFile of pathsToTry) {
     try {
       const creds = await fs.readFile(keyFile, 'utf-8');
-      client.setCredentials(JSON.parse(creds));
+      const parsedCreds = JSON.parse(creds);
+
+      // SECURITY FIX: Validate project context before loading credentials
+      const expectedProject = process.env['GOOGLE_CLOUD_PROJECT'];
+      if (expectedProject && !validateProjectContext(parsedCreds, expectedProject)) {
+        console.warn('Credential project context mismatch - possible security issue');
+        continue;
+      }
+
+      client.setCredentials(parsedCreds);
 
       // This will verify locally that the credentials look good.
       const { token } = await client.getAccessToken();
@@ -455,7 +548,14 @@ async function cacheCredentials(credentials: Credentials) {
   const filePath = Storage.getOAuthCredsPath();
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 
-  const credString = JSON.stringify(credentials, null, 2);
+  // SECURITY FIX: Include project context in cached credentials
+  const projectId = process.env['GOOGLE_CLOUD_PROJECT'];
+  const credentialsWithContext = {
+    ...credentials,
+    ...(projectId && { project_id: projectId })
+  };
+
+  const credString = JSON.stringify(credentialsWithContext, null, 2);
   await fs.writeFile(filePath, credString, { mode: 0o600 });
   try {
     await fs.chmod(filePath, 0o600);

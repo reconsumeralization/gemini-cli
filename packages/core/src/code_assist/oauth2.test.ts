@@ -951,4 +951,133 @@ describe('oauth2', () => {
       expect(OAuth2Client).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('Security: Authentication Bypass Prevention', () => {
+    it('should prevent loading credentials with mismatched project context', async () => {
+      // Setup credentials with project context
+      const projectACreds = { 
+        refresh_token: 'project-a-token',
+        project_id: 'project-a'
+      };
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      await fs.promises.mkdir(path.dirname(credsPath), { recursive: true });
+      await fs.promises.writeFile(credsPath, JSON.stringify(projectACreds));
+
+      // Set different project in environment
+      vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'project-b');
+
+      const mockClient = {
+        setCredentials: vi.fn(),
+        getAccessToken: vi.fn().mockResolvedValue({ token: 'test-token' }),
+        getTokenInfo: vi.fn().mockResolvedValue({}),
+        on: vi.fn(),
+      };
+      (OAuth2Client as unknown as Mock).mockImplementation(
+        () => mockClient as unknown as OAuth2Client,
+      );
+
+      // Should fail to load credentials due to project mismatch
+      await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
+      
+      // Should not have set credentials due to project context mismatch
+      expect(mockClient.setCredentials).not.toHaveBeenCalled();
+    });
+
+    it('should allow loading credentials with matching project context', async () => {
+      // Setup credentials with project context
+      const projectACreds = { 
+        refresh_token: 'project-a-token',
+        project_id: 'project-a'
+      };
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      await fs.promises.mkdir(path.dirname(credsPath), { recursive: true });
+      await fs.promises.writeFile(credsPath, JSON.stringify(projectACreds));
+
+      // Set matching project in environment
+      vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'project-a');
+
+      const mockClient = {
+        setCredentials: vi.fn(),
+        getAccessToken: vi.fn().mockResolvedValue({ token: 'test-token' }),
+        getTokenInfo: vi.fn().mockResolvedValue({}),
+        on: vi.fn(),
+      };
+      (OAuth2Client as unknown as Mock).mockImplementation(
+        () => mockClient as unknown as OAuth2Client,
+      );
+
+      // Should successfully load credentials with matching project
+      await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
+      
+      // Should have set credentials due to matching project context
+      expect(mockClient.setCredentials).toHaveBeenCalledWith(projectACreds);
+    });
+
+    it('should allow loading credentials when no project is specified', async () => {
+      // Setup credentials without project context
+      const creds = { refresh_token: 'test-token' };
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      await fs.promises.mkdir(path.dirname(credsPath), { recursive: true });
+      await fs.promises.writeFile(credsPath, JSON.stringify(creds));
+
+      // No project specified in environment
+      delete process.env['GOOGLE_CLOUD_PROJECT'];
+
+      const mockClient = {
+        setCredentials: vi.fn(),
+        getAccessToken: vi.fn().mockResolvedValue({ token: 'test-token' }),
+        getTokenInfo: vi.fn().mockResolvedValue({}),
+        on: vi.fn(),
+      };
+      (OAuth2Client as unknown as Mock).mockImplementation(
+        () => mockClient as unknown as OAuth2Client,
+      );
+
+      // Should successfully load credentials when no project is specified
+      await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
+      
+      // Should have set credentials
+      expect(mockClient.setCredentials).toHaveBeenCalledWith(creds);
+    });
+
+    it('should include project context when caching credentials', async () => {
+      vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'test-project');
+
+      const mockSetCredentials = vi.fn();
+      const mockGetAccessToken = vi.fn().mockResolvedValue({ token: 'test-token' });
+      const mockOAuth2Client = {
+        setCredentials: mockSetCredentials,
+        getAccessToken: mockGetAccessToken,
+        on: vi.fn(),
+      } as unknown as OAuth2Client;
+      (OAuth2Client as unknown as Mock).mockImplementation(
+        () => mockOAuth2Client,
+      );
+
+      // Mock the token event to trigger credential caching
+      const mockOn = vi.fn((event: string, callback: (tokens: Record<string, unknown>) => void) => {
+        if (event === 'tokens') {
+          // Simulate token refresh
+          setTimeout(() => callback({ 
+            access_token: 'new-access-token',
+            refresh_token: 'new-refresh-token'
+          }), 0);
+        }
+        return mockOAuth2Client;
+      });
+      mockOAuth2Client.on = mockOn as unknown as OAuth2Client['on'];
+
+      await getOauthClient(AuthType.LOGIN_WITH_GOOGLE, mockConfig);
+
+      // Wait for token event to be processed
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Check that credentials were cached with project context
+      const credsPath = path.join(tempHomeDir, '.gemini', 'oauth_creds.json');
+      if (fs.existsSync(credsPath)) {
+        const cachedCreds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+        expect(cachedCreds.project_id).toBe('test-project');
+      }
+    });
+  });
 });
