@@ -104,9 +104,7 @@ function getNodeMemoryArgs(config: Config): string[] {
 }
 
 async function relaunchAppInChildProcess(additionalArgs: string[] = []) {
-  const relaunch = true;
-
-  while (relaunch) {
+  while (true) {
     const nodeArgs = [...additionalArgs, ...process.argv.slice(1)];
     const newEnv = { ...process.env, GEMINI_CLI_NO_RELAUNCH: 'true' };
 
@@ -115,15 +113,24 @@ async function relaunchAppInChildProcess(additionalArgs: string[] = []) {
       env: newEnv,
     });
 
-    const exitCode = await new Promise<number>((resolve) => {
-      child.on('close', (code) => resolve(code ?? 0));
-    });
+    try {
+      const exitCode = await new Promise<number>((resolve, reject) => {
+        child.on('error', reject);
+        child.on('close', (code) => {
+          // A null code indicates an abnormal termination.
+          resolve(code ?? 1);
+        });
+      });
 
-    // Simplified conditional logic as suggested in code review
-    if (exitCode !== RELAUNCH_EXIT_CODE) {
-      process.exit(exitCode);
+      if (exitCode !== RELAUNCH_EXIT_CODE) {
+        process.exit(exitCode);
+      }
+      // If exitCode === RELAUNCH_EXIT_CODE, continue the loop to relaunch.
+    } catch (error) {
+      // This will catch errors from spawn, e.g., if the process cannot be created.
+      console.error('Fatal error: Failed to relaunch the CLI process.', error);
+      process.exit(1);
     }
-    // If exitCode === RELAUNCH_EXIT_CODE, continue the loop to relaunch
   }
 }
 

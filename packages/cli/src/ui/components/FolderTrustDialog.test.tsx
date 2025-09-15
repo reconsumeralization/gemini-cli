@@ -3,18 +3,21 @@ import { renderWithProviders } from '../../test-utils/renderWithProviders.js';
 import { FolderTrustDialog, FolderTrustChoice } from './FolderTrustDialog.js';
 import { waitFor } from '@testing-library/react';
 
-// Mock process.exit
+// Mock process.exit and process.cwd
 const mockedExit = vi.fn();
+const mockedCwd = vi.fn();
 beforeEach(() => {
   vi.stubGlobal('process', {
     ...process,
     exit: mockedExit,
+    cwd: mockedCwd,
   });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   mockedExit.mockClear();
+  mockedCwd.mockClear();
 });
 
 describe('FolderTrustDialog', () => {
@@ -61,6 +64,34 @@ describe('FolderTrustDialog', () => {
 
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(FolderTrustChoice.DO_NOT_TRUST);
+    });
+  });
+
+  describe('directory display', () => {
+    it('should correctly display the folder name for a nested directory', () => {
+      mockedCwd.mockReturnValue('/home/user/project');
+      const { lastFrame } = renderWithProviders(
+        <FolderTrustDialog onSelect={vi.fn()} />,
+      );
+      expect(lastFrame()).toContain('Trust folder (project)');
+    });
+
+    it('should correctly display the parent folder name for a nested directory', () => {
+      mockedCwd.mockReturnValue('/home/user/project');
+      const { lastFrame } = renderWithProviders(
+        <FolderTrustDialog onSelect={vi.fn()} />,
+      );
+      expect(lastFrame()).toContain('Trust parent folder (user)');
+    });
+
+    it('should correctly display an empty parent folder name for a directory directly under root', () => {
+      mockedCwd.mockReturnValue('/project');
+      const { lastFrame } = renderWithProviders(
+        <FolderTrustDialog onSelect={vi.fn()} />,
+      );
+      // Note: path.dirname('/') is '/', and path.basename('/') is ''.
+      // So for '/project', parent is '/' and basename is '', which is correct.
+      expect(lastFrame()).toContain('Trust parent folder ()');
     });
   });
 });
