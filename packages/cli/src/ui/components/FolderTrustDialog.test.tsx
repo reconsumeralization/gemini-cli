@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderWithProviders } from '../../test-utils/renderWithProviders.js';
+import { renderWithProviders } from '../../test-utils/render.js';
 import { FolderTrustDialog, FolderTrustChoice } from './FolderTrustDialog.js';
 import { waitFor } from '@testing-library/react';
 
