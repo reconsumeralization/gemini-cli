@@ -13,6 +13,7 @@ import v8 from 'node:v8';
 import os from 'node:os';
 import dns from 'node:dns';
 import { spawn } from 'node:child_process';
+import { RELAUNCH_EXIT_CODE } from './utils/processUtils.js';
 import { start_sandbox } from './utils/sandbox.js';
 import type { DnsResolutionOrder, LoadedSettings } from './config/settings.js';
 import { loadSettings, SettingScope } from './config/settings.js';
@@ -102,17 +103,28 @@ function getNodeMemoryArgs(config: Config): string[] {
   return [];
 }
 
-async function relaunchWithAdditionalArgs(additionalArgs: string[]) {
-  const nodeArgs = [...additionalArgs, ...process.argv.slice(1)];
-  const newEnv = { ...process.env, GEMINI_CLI_NO_RELAUNCH: 'true' };
+async function relaunchAppInChildProcess(additionalArgs: string[] = []) {
+  const relaunch = true;
 
-  const child = spawn(process.execPath, nodeArgs, {
-    stdio: 'inherit',
-    env: newEnv,
-  });
+  while (relaunch) {
+    const nodeArgs = [...additionalArgs, ...process.argv.slice(1)];
+    const newEnv = { ...process.env, GEMINI_CLI_NO_RELAUNCH: 'true' };
 
-  await new Promise((resolve) => child.on('close', resolve));
-  process.exit(0);
+    const child = spawn(process.execPath, nodeArgs, {
+      stdio: 'inherit',
+      env: newEnv,
+    });
+
+    const exitCode = await new Promise<number>((resolve) => {
+      child.on('close', (code) => resolve(code ?? 0));
+    });
+
+    // Simplified conditional logic as suggested in code review
+    if (exitCode !== RELAUNCH_EXIT_CODE) {
+      process.exit(exitCode);
+    }
+    // If exitCode === RELAUNCH_EXIT_CODE, continue the loop to relaunch
+  }
 }
 
 import { runZedIntegration } from './zed-integration/zedIntegration.js';
@@ -350,8 +362,8 @@ export async function main() {
       // Not in a sandbox and not entering one, so relaunch with additional
       // arguments to control memory usage if needed.
       if (memoryArgs.length > 0) {
-        await relaunchWithAdditionalArgs(memoryArgs);
-        process.exit(0);
+        await relaunchAppInChildProcess(memoryArgs);
+        // Note: relaunchAppInChildProcess never returns, so this line is unreachable
       }
     }
   }

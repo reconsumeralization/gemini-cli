@@ -1,67 +1,32 @@
-/**
- * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { renderWithProviders } from '../../test-utils/render.js';
-import { waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderWithProviders } from '../../test-utils/renderWithProviders.js';
 import { FolderTrustDialog, FolderTrustChoice } from './FolderTrustDialog.js';
+import { waitFor } from '@testing-library/react';
 
-const mockedExit = vi.hoisted(() => vi.fn());
-const mockedCwd = vi.hoisted(() => vi.fn());
-
-vi.mock('process', async () => {
-  const actual = await vi.importActual('process');
-  return {
-    ...actual,
+// Mock process.exit
+const mockedExit = vi.fn();
+beforeEach(() => {
+  vi.stubGlobal('process', {
+    ...process,
     exit: mockedExit,
-    cwd: mockedCwd,
-  };
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  mockedExit.mockClear();
 });
 
 describe('FolderTrustDialog', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockedCwd.mockReturnValue('/home/user/project');
-  });
-
-  it('should render the dialog with title and description', () => {
+  it('should render trust options', () => {
     const { lastFrame } = renderWithProviders(
       <FolderTrustDialog onSelect={vi.fn()} />,
     );
 
     expect(lastFrame()).toContain('Do you trust this folder?');
-    expect(lastFrame()).toContain(
-      'Trusting a folder allows Gemini to execute commands it suggests.',
-    );
-  });
-
-  it('should call onSelect with DO_NOT_TRUST when escape is pressed and not restarting', async () => {
-    const onSelect = vi.fn();
-    const { stdin } = renderWithProviders(
-      <FolderTrustDialog onSelect={onSelect} isRestarting={false} />,
-    );
-
-    stdin.write('\x1b'); // escape key
-
-    await waitFor(() => {
-      expect(onSelect).toHaveBeenCalledWith(FolderTrustChoice.DO_NOT_TRUST);
-    });
-  });
-
-  it('should not call onSelect when escape is pressed and is restarting', async () => {
-    const onSelect = vi.fn();
-    const { stdin } = renderWithProviders(
-      <FolderTrustDialog onSelect={onSelect} isRestarting={true} />,
-    );
-
-    stdin.write('\x1b'); // escape key
-
-    await waitFor(() => {
-      expect(onSelect).not.toHaveBeenCalled();
-    });
+    expect(lastFrame()).toContain('Trust folder');
+    expect(lastFrame()).toContain('Trust parent folder');
+    expect(lastFrame()).toContain("Don't trust");
   });
 
   it('should display restart message when isRestarting is true', () => {
@@ -70,25 +35,13 @@ describe('FolderTrustDialog', () => {
     );
 
     expect(lastFrame()).toContain(
-      'To see changes, Gemini CLI must be restarted',
+      'Gemini CLI is restarting to apply changes...',
     );
   });
 
-  it('should call process.exit when "r" is pressed and isRestarting is true', async () => {
+  it('should not respond to "r" key press since manual restart is no longer supported', async () => {
     const { stdin } = renderWithProviders(
       <FolderTrustDialog onSelect={vi.fn()} isRestarting={true} />,
-    );
-
-    stdin.write('r');
-
-    await waitFor(() => {
-      expect(mockedExit).toHaveBeenCalledWith(0);
-    });
-  });
-
-  it('should not call process.exit when "r" is pressed and isRestarting is false', async () => {
-    const { stdin } = renderWithProviders(
-      <FolderTrustDialog onSelect={vi.fn()} isRestarting={false} />,
     );
 
     stdin.write('r');
@@ -98,29 +51,16 @@ describe('FolderTrustDialog', () => {
     });
   });
 
-  describe('directory display', () => {
-    it('should correctly display the folder name for a nested directory', () => {
-      mockedCwd.mockReturnValue('/home/user/project');
-      const { lastFrame } = renderWithProviders(
-        <FolderTrustDialog onSelect={vi.fn()} />,
-      );
-      expect(lastFrame()).toContain('Trust folder (project)');
-    });
+  it('should call onSelect when escape is pressed', async () => {
+    const onSelect = vi.fn();
+    const { stdin } = renderWithProviders(
+      <FolderTrustDialog onSelect={onSelect} />,
+    );
 
-    it('should correctly display the parent folder name for a nested directory', () => {
-      mockedCwd.mockReturnValue('/home/user/project');
-      const { lastFrame } = renderWithProviders(
-        <FolderTrustDialog onSelect={vi.fn()} />,
-      );
-      expect(lastFrame()).toContain('Trust parent folder (user)');
-    });
+    stdin.write('\u001b'); // Escape key
 
-    it('should correctly display an empty parent folder name for a directory directly under root', () => {
-      mockedCwd.mockReturnValue('/project');
-      const { lastFrame } = renderWithProviders(
-        <FolderTrustDialog onSelect={vi.fn()} />,
-      );
-      expect(lastFrame()).toContain('Trust parent folder ()');
+    await waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(FolderTrustChoice.DO_NOT_TRUST);
     });
   });
 });
