@@ -368,10 +368,8 @@ export async function main() {
     } else {
       // Not in a sandbox and not entering one, so relaunch with additional
       // arguments to control memory usage if needed.
-      if (memoryArgs.length > 0) {
-        await relaunchAppInChildProcess(memoryArgs);
-        // Note: relaunchAppInChildProcess never returns, so this line is unreachable
-      }
+      await relaunchAppInChildProcess(memoryArgs);
+      // Note: relaunchAppInChildProcess never returns, so this line is unreachable
     }
   }
 

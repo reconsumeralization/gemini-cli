@@ -6,12 +6,14 @@
 
 import { Box, Text } from 'ink';
 import type React from 'react';
+import { useEffect } from 'react';
 import { theme } from '../semantic-colors.js';
 import type { RadioSelectItem } from './shared/RadioButtonSelect.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { useKeypress } from '../hooks/useKeypress.js';
 import * as process from 'node:process';
 import * as path from 'node:path';
+import { relaunchApp } from '../../utils/processUtils.js';
 
 export enum FolderTrustChoice {
   TRUST_FOLDER = 'trust_folder',
@@ -36,6 +38,20 @@ export const FolderTrustDialog: React.FC<FolderTrustDialogProps> = ({
     },
     { isActive: !isRestarting },
   );
+
+  useEffect(() => {
+    if (isRestarting) {
+      // Clear the terminal and restart after a short delay
+      const timer = setTimeout(() => {
+        // Clear the terminal
+        process.stdout.write('\x1b[2J\x1b[0f');
+        relaunchApp();
+      }, 1000); // 1 second delay to let users read the message
+
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isRestarting]);
 
 
   const dirName = path.basename(process.cwd());
