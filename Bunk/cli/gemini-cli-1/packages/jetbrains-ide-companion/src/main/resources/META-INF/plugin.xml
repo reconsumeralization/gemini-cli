@@ -1,0 +1,63 @@
+<idea-plugin>
+    <id>com.google.gemini.cli.jetbrains</id>
+    <name>Gemini CLI Companion</name>
+    <vendor email="support@google.com" url="https://github.com/google-gemini/gemini-cli">Google</vendor>
+
+    <description><![CDATA[
+        <h2>Gemini CLI Companion for JetBrains IDEs</h2>
+        <p>This extension enables seamless integration between Gemini CLI and JetBrains IDEs, providing:</p>
+        <ul>
+            <li><strong>Workspace Context:</strong> Automatic awareness of your workspace, active files, and cursor position</li>
+            <li><strong>Native Diffing:</strong> View and edit Gemini's suggested changes directly in your IDE's diff viewer</li>
+            <li><strong>Real-time Updates:</strong> Live context updates as you work</li>
+        </ul>
+        <p>To use this extension, install Gemini CLI and run it from your IDE's integrated terminal.</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <h3>Version 1.0.0</h3>
+        <ul>
+            <li>Initial release</li>
+            <li>MCP server implementation with security features</li>
+            <li>DNS rebinding protection</li>
+            <li>Bearer token authentication</li>
+            <li>Multi-client session support</li>
+            <li>File context tracking</li>
+            <li>Diff operations support</li>
+        </ul>
+    ]]></change-notes>
+
+    <!-- Plugin version -->
+    <version>1.0.0</version>
+
+    <!-- Plugin compatibility -->
+    <idea-version since-build="233" until-build="241.*"/>
+
+    <!-- Plugin dependencies -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
+
+    <!-- Plugin extensions -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Project-level service -->
+        <projectService serviceImplementation="com.google.gemini.cli.jetbrains.IDEServer"/>
+    </extensions>
+
+    <!-- Plugin actions -->
+    <actions>
+        <action id="com.google.gemini.cli.jetbrains.StartServer" 
+                class="com.google.gemini.cli.jetbrains.actions.StartServerAction"
+                text="Start Gemini CLI Server"
+                description="Start the Gemini CLI companion server">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        
+        <action id="com.google.gemini.cli.jetbrains.StopServer" 
+                class="com.google.gemini.cli.jetbrains.actions.StopServerAction"
+                text="Stop Gemini CLI Server"
+                description="Stop the Gemini CLI companion server">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
